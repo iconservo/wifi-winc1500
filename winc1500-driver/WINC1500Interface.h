@@ -2,7 +2,7 @@
 
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
 public:
-    WINC1500Interface() {}
+    WINC1500Interface();
     virtual int connect();
 
     virtual int connect(const char *ssid, const char *pass, nsapi_security_t security = NSAPI_SECURITY_NONE,

@@ -1,5 +1,5 @@
 {
-    "name": "ism43362",
+    "name": "winc1500",
     "config": {
         "wifi-miso": {
             "help": "SPI-MISO connection to external device",

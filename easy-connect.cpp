@@ -65,6 +65,11 @@ ISM43362Interface wifi(true);
 ISM43362Interface wifi;
 #endif
 
+#elif MBED_CONF_APP_NETWORK_INTERFACE == WIFI_WINC1500
+#include "WINC1500Interface.h"
+#define EASY_CONNECT_WIFI_TYPE "WINC1500"
+WINC1500Interface wifi;
+
 #elif MBED_CONF_APP_NETWORK_INTERFACE == ETHERNET
 #include "EthernetInterface.h"
 EthernetInterface eth;

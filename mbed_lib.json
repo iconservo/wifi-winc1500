@@ -18,16 +18,23 @@
             "value": "NC"
         },
         "wifi-reset": {
-            "help": "ISM43362 reset",
+            "help": "winc1500 reset",
             "value": "NC"
         },
         "wifi-dataready": {
-            "help": "ISM43362 dataready",
+            "help": "winc1500 dataready",
             "value": "NC"
         },
         "wifi-wakeup": {
-            "help": "ISM43362 wakeup",
+            "help": "winc1500 wakeup",
             "value": "NC"
+        },
+        "enable_debug": {
+            "macro_name": "MBED_WINC1500_ENABLE_DEBUG",
+            "value": null,
+            "help": "Enables debug logging, true = enabled, false = disabled, null = disabled only in release builds"
         }
-    }
+    },
+    "macros" : [ "__APP_APS3_CORTUS__", "CONF_WINC_DEBUG=1",
+        "NM_EDGE_INTERRUPT","CONF_WINC_USE_SPI" ]
 }

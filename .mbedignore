@@ -1,0 +1,9 @@
+winc1500/firmware_update_project/*
+winc1500/cert_downloader/*
+winc1500/host_app/*
+winc1500/host_firmware_upgrade/*
+winc1500/host_drv/module_config/samd21/*
+winc1500/host_drv/bsp/include/nm_bsp_samd21.h
+winc1500/host_drv/bsp/source/nm_bsp_samd21.c
+winc1500/host_drv/bus_wrapper/source/nm_bus_wrapper_samd21.c
+winc1500/host_drv/socket/source/socket.c

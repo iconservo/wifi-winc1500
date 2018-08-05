@@ -6,5 +6,5 @@ Selecting the least likely macro ( __APP_APS3_CORTUS__ ) to be used elsewhere re
 This allows hooking Mbed definitions to be hooked in here.
 
 Second, host driver socket.c contains a definition of symbol `close` which conflicts with Mbed.
-To work around that, socket.c compilation is excluded, and patch_socket.c redefines that symbol to `socket_close`
+To work around that, socket.c compilation is excluded, and patch_socket.c redefines that symbol to `winc_socket_close`
 

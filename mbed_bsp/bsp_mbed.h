@@ -6,7 +6,7 @@
 
 #ifndef __cplusplus
 
-// winc headers use this
+// winc headers use this in C compile mode
 typedef unsigned char bool;
 enum { true = 1, false =0 };
 

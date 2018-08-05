@@ -1,3 +1,3 @@
-#define close socket_close
+#define close winc_socket_close
 
 #include "source/socket.c"

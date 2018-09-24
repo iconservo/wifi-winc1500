@@ -16,7 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#include "winc1500/host_drv/module_config/samd21/conf_winc.h"
+#include "mbed_bsp/bsp_mbed.h"
+#include "mbed-os/targets/TARGET_NORDIC/TARGET_NRF5x/TARGET_SDK_14_2/drivers_nrf/hal/nrf_gpio.h"
 
 
 #ifdef CONF_WINC_USE_SPI
@@ -28,16 +29,12 @@
 #include "mbed_error.h"
 
 //mbed specific GPIO handling
-DigitalOut SS_PIN((PinName)CONF_WINC_SPI_SS);
-SPI spi((PinName)CONF_WINC_SPI_MOSI, (PinName)CONF_WINC_SPI_MISO, (PinName)CONF_WINC_SPI_SCK); // mosi, miso, sclk
-
-
-//#include "winc1500_priv.h"
+static DigitalOut SS_PIN(CONF_WINC_SPI_SS);
+static SPI spi(CONF_WINC_SPI_MOSI, CONF_WINC_SPI_MISO, CONF_WINC_SPI_SCK); // mosi, miso, sclk
 
 extern "C"
 {
 
-// #include "winc1500/host_drv/bsp/include/nm_bsp.h"
 #include "winc1500/host_drv/bus_wrapper/include/nm_bus_wrapper.h"
     
     
@@ -55,33 +52,28 @@ int winc1500_spi_inited;
 sint8
 nm_bus_init(void *pvinit)
 {
-    
-//    struct hal_spi_settings cfg = { 0 };
-//
-//    /*
-//     * Add code to configure spi.
-//     */
-//    if (!winc1500_spi_inited) {
-//        if (hal_gpio_init_out(WINC1500_SPI_SSN, 1)) {
-//            return M2M_ERR_BUS_FAIL;
-//        }
-//        cfg.data_mode = HAL_SPI_MODE0;
-//        cfg.data_order = HAL_SPI_MSB_FIRST;
-//        cfg.word_size = HAL_SPI_WORD_SIZE_8BIT;
-//        cfg.baudrate = WINC1500_SPI_SPEED;
-//
-//        if (hal_spi_config(BSP_WINC1500_SPI_PORT, &cfg)) {
-//            return M2M_ERR_BUS_FAIL;
-//        }
-//        winc1500_spi_inited = 1;
-//        if (hal_spi_enable(BSP_WINC1500_SPI_PORT)) {
-//            return M2M_ERR_BUS_FAIL;
-//        }
-//    }
-//    nm_bsp_reset();
-//    nm_bsp_sleep(1);
 
-    return M2M_SUCCESS;
+    spi.format(8,0);
+
+    nrf_gpio_cfg(CONF_WINC_SPI_MOSI,
+                 NRF_GPIO_PIN_DIR_INPUT,
+                 NRF_GPIO_PIN_INPUT_CONNECT,
+                 NRF_GPIO_PIN_NOPULL,
+				 NRF_GPIO_PIN_H0H1,
+                 NRF_GPIO_PIN_NOSENSE);
+
+    nrf_gpio_cfg(CONF_WINC_SPI_SCK,
+                     NRF_GPIO_PIN_DIR_INPUT,
+                     NRF_GPIO_PIN_INPUT_CONNECT,
+                     NRF_GPIO_PIN_NOPULL,
+					 NRF_GPIO_PIN_H0H1,
+                     NRF_GPIO_PIN_NOSENSE);
+
+    nm_bsp_reset();
+    nm_bsp_sleep(1);
+
+
+    return 0;
 }
 
 sint8
@@ -90,19 +82,18 @@ nm_bus_deinit(void)
     /*
      * Disable SPI.
      */
-    return M2M_SUCCESS;
+    return 0;
 }
 
 static sint8
 nm_spi_rw(uint8 *pu8Mosi, uint8 *pu8Miso, uint16 u16Sz)
 {
-    int rc = M2M_SUCCESS;
+    int rc = 0;
     uint8_t tx = 0;
     uint8_t rx;
 
     /* chip select */
     SS_PIN.write(0);
-//    hal_gpio_write(CONF_WINC_SPI_SS, 0);
     
     //sending one symbol at time
     while (u16Sz) {
@@ -110,26 +101,20 @@ nm_spi_rw(uint8 *pu8Mosi, uint8 *pu8Miso, uint16 u16Sz)
             tx = *pu8Mosi;
             pu8Mosi++;
         }
-        //rx = hal_spi_tx_val(BSP_WINC1500_SPI_PORT, tx);
-//        rc = hal_spi_txrx(BSP_WINC1500_SPI_PORT, &tx, &rx, 1);
-        rx = (uint8_t) spi.write((int)&tx);
-        
-//        if (rc != 0) {
-//            rc = M2M_ERR_BUS_FAIL;
-//            break;
-//        }
+
+        rx = (uint8_t) spi.write((int)tx);
+
         if (pu8Miso) {
             *pu8Miso = rx;
             pu8Miso++;
         }
         u16Sz--;
     }
-    
-    //multiple SPI writes
-//    rc = spi.write(pu8Mosi, u16Sz, pu8Miso, u16Sz);
+
+    //multiple SPI write
+//    rc = spi.write((const char*)pu8Mosi, (int)u16Sz, (char*)pu8Miso, (int)u16Sz);
 
     /* chip deselect */
-//    hal_gpio_write(CONF_WINC_SPI_SS, 1);
     SS_PIN.write(1);
 
 

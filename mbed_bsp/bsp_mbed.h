@@ -11,10 +11,10 @@ typedef unsigned char bool;
 enum { true = 1, false =0 };
 
 #endif
-
-#ifndef min
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#endif
+//
+//#ifndef min
+//#define min(a, b) ((a) < (b) ? (a) : (b))
+//#endif
 
 #define _Static_assert(...);
 

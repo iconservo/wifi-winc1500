@@ -33,7 +33,7 @@ struct WINC1500_socket {
     nsapi_protocol_t proto;
     volatile bool connected;
     SocketAddress addr;
-    char read_data[WINC1500_SOCK_RX_SIZE];
+//    char read_data[WINC1500_SOCK_RX_SIZE];
     volatile uint32_t read_data_size;
 };
 

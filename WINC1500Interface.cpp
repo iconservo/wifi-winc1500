@@ -261,7 +261,7 @@ int WINC1500Interface::socket_open(void **handle, nsapi_protocol_t proto)
 		socket->id = id;
 		winc_debug(_winc_debug, "WINC1500Interface: socket_open, id=%d\n", socket->id);
 
-		memset(socket->read_data, 0, sizeof(socket->read_data));
+//		memset(socket->read_data, 0, sizeof(socket->read_data));
 
 		socket->addr = 0;
 		socket->read_data_size = 0;
@@ -474,7 +474,17 @@ int WINC1500Interface::socket_recv(void *handle, void *data, unsigned size)
 		return NSAPI_ERROR_CONNECTION_LOST;
 	}
 
-	sint16 err = WINC_SOCKET(recv)(socket->id, (void *) data, (uint16) size, 0);
+
+	uint16_t size_to_receive = 1024; //size
+
+	winc_debug(_winc_debug, "socket_id = %i", socket->id);
+	winc_debug(_winc_debug, "amount of data to receive = %i", size_to_receive);
+//	winc_debug(_winc_debug, "amount of data to receive = %i", size_to_receive);
+
+//	uint8_t data_arr[1024];
+
+	//TODO: CHANGE TO SIZE!!!!
+	sint16 err = WINC_SOCKET(recv)(socket->id, (void *) data, (uint16) size_to_receive, 100);
 	if (err != SOCK_ERR_NO_ERROR) {
 		winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
 	}

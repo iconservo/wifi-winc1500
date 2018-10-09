@@ -1,7 +1,13 @@
+
+
+#ifndef WINC1500INTERFACE_H
+#define WINC1500INTERFACE_H
+
 #include "mbed.h"
 
 
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
+//#include "WINC1500TLSSocket.h"
 
 extern "C"
 {
@@ -11,7 +17,7 @@ extern "C"
 	#include "wifi-winc1500/mbed_winc1500_socket/include/winc1500_socket.h"
 }
 
-#define MAX_NUM_APs		10
+#define MAX_NUM_APs					10
 
 #define WINC1500_SOCK_RX_SIZE       1500
 
@@ -35,13 +41,23 @@ struct WINC1500_socket {
     SocketAddress addr;
 //    char read_data[WINC1500_SOCK_RX_SIZE];
     volatile uint32_t read_data_size;
+    /**
+	 * TCP port number of HTTP.
+	 * Default value is 80.
+	 */
+    uint16_t port;
+    /**
+	 * A flag for the whether using the TLS socket or not.
+	 * Default value is 0.
+	 */
+    uint8_t tls;
 };
 
 
-typedef union ip_addr_t{
+typedef union {
 	uint8_t ip_addr_8[4];
 	uint32_t ip_addr_32;
-};
+} ip_addr_t;
 
 
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
@@ -74,6 +90,11 @@ protected:
     virtual int socket_sendto(void *handle, const SocketAddress &address, const void *data, unsigned size);
     virtual int socket_recvfrom(void *handle, SocketAddress *address, void *buffer, unsigned size);
     virtual void socket_attach(void *handle, void (*callback)(void *), void *data);
+
+    virtual int socket_open_nolock(void *handle, struct WINC1500_socket *socket);
+    virtual int socket_open_tls(void **handle, nsapi_protocol_t proto, unsigned use_tls);
+
+
     virtual NetworkStack *get_stack()
     {
         return this;
@@ -81,6 +102,8 @@ protected:
 
 
 private:
+
+    friend class WINC1500TLSSocket;
 
     static WINC1500Interface* instance;
 
@@ -135,3 +158,5 @@ private:
     static void dnsResolveCallback(uint8* pu8HostName ,uint32 u32ServerIP);
 
 };
+
+#endif

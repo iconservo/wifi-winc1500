@@ -101,7 +101,7 @@ nsapi_error_t WINC1500Interface::gethostbyname(const char *name, SocketAddress *
 	}
 
 	char *ipbuff = new char[NSAPI_IP_SIZE];
-	int ret = 0;
+
 //	_ism.setTimeout(ISM43362_CONNECT_TIMEOUT);
 
 	sint8 s8Err = WINC_SOCKET(gethostbyname)((uint8_t *)name);
@@ -161,7 +161,7 @@ int WINC1500Interface::set_credentials(const char *ssid, const char *pass, nsapi
 int WINC1500Interface::set_channel(uint8_t channel)
 {
     ap_ch = channel;
-//    return NSAPI_ERROR_UNSUPPORTED;
+    return NSAPI_ERROR_OK;
 }
 
 int WINC1500Interface::disconnect()
@@ -224,6 +224,59 @@ struct WINC1500Socket {
 
 /**********************SOCKET**************************/
 
+int WINC1500Interface::socket_open_tls(void **handle, nsapi_protocol_t proto, unsigned use_tls)
+{
+
+	// Look for an unused socket
+	int id = -1;
+	int idx;
+
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		if (!_ids[i]) {
+			id = i;
+			_ids[i] = true;
+			break;
+		}
+	}
+
+	if (id == -1) {
+		return NSAPI_ERROR_NO_SOCKET;
+	}
+
+	_mutex.lock();
+	struct WINC1500_socket *socket = new struct WINC1500_socket;
+	if (!socket) {
+		_mutex.unlock();
+		return NSAPI_ERROR_NO_SOCKET;
+	}
+
+	//WINC1500 needs for HTTP connection
+	socket -> port = 443;
+	socket -> tls = use_tls;
+
+	idx = socket_open_nolock(handle, socket);
+
+	if (idx >= 0) {
+		socket->id = id;
+		winc_debug(_winc_debug, "WINC1500Interface: socket_open, id=%d\n", socket->id);
+
+		socket->addr = 0;
+		socket->read_data_size = 0;
+		socket->proto = proto;
+		socket->connected = false;
+		*handle = socket;
+	}
+	_mutex.unlock();
+
+	if (idx < 0 ) {
+		return NSAPI_ERROR_NO_SOCKET;
+	} else {
+		return NSAPI_ERROR_OK;
+	}
+
+}
+
+
 int WINC1500Interface::socket_open(void **handle, nsapi_protocol_t proto)
 {
 
@@ -250,18 +303,15 @@ int WINC1500Interface::socket_open(void **handle, nsapi_protocol_t proto)
 		return NSAPI_ERROR_NO_SOCKET;
 	}
 
-	/* Initialize socket module. */
-	WINC_SOCKET(socketInit)();
-	/* Register socket callback function. */
-	WINC_SOCKET(registerSocketCallback)(socket_cb, dnsResolveCallback);
+	//WINC1500 needs for HTTP connection
+	socket -> port = 80;
+	socket -> tls = 0;
 
+	idx = socket_open_nolock(handle, socket);
 
-	idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, 0);
 	if (idx >= 0) {
 		socket->id = id;
 		winc_debug(_winc_debug, "WINC1500Interface: socket_open, id=%d\n", socket->id);
-
-//		memset(socket->read_data, 0, sizeof(socket->read_data));
 
 		socket->addr = 0;
 		socket->read_data_size = 0;
@@ -278,6 +328,21 @@ int WINC1500Interface::socket_open(void **handle, nsapi_protocol_t proto)
 	}
 
 }
+
+int WINC1500Interface::socket_open_nolock(void *handle, struct WINC1500_socket *socket)
+{
+    int idx;
+	/* Initialize socket module. */
+	WINC_SOCKET(socketInit)();
+	/* Register socket callback function. */
+	WINC_SOCKET(registerSocketCallback)(socket_cb, dnsResolveCallback);
+
+
+	idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, socket->tls);
+
+	return idx;
+}
+
 
 int WINC1500Interface::socket_close(void *handle)
 {
@@ -356,7 +421,7 @@ int WINC1500Interface::socket_connect(void *handle, const SocketAddress &addr)
 	struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
 
 //	_ism.setTimeout(ISM43362_CONNECT_TIMEOUT);
-	const char *proto = (socket->proto == NSAPI_UDP) ? "1" : "0";
+//	const char *proto = (socket->proto == NSAPI_UDP) ? "1" : "0";
 
 //	if (!_ism.open(proto, socket->id, addr.get_ip_address(), addr.get_port())) {
 //		return NSAPI_ERROR_DEVICE_ERROR;
@@ -384,10 +449,10 @@ int WINC1500Interface::socket_connect(void *handle, const SocketAddress &addr)
 
 
 	current_sock_addr.sin_family = AF_INET;
-	current_sock_addr.sin_port = _htons(80);
+	current_sock_addr.sin_port = _htons(socket->port);
 
 //	winc_debug(_winc_debug, "WINC1500_IP address: %s\n",  addr.get_ip_address());
-	winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n",  current_sock_addr.sin_addr.s_addr);
+	winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n",  (unsigned int) current_sock_addr.sin_addr.s_addr);
 //	winc_debug(_winc_debug, "WINC1500_Port: %d\n",  addr.get_port());
 
 	_mutex.lock();
@@ -433,9 +498,9 @@ int WINC1500Interface::socket_send(void *handle, const void *data, unsigned size
 
 	struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
 
-	winc_debug(_winc_debug, "socket_send entry point\n",  socket->id);
+	winc_debug(_winc_debug, "socket_send entry point\n");
 	winc_debug(_winc_debug, "Socket ID: %i\n",  socket->id);
-	winc_debug(_winc_debug, "Data to send: %s\n",  data);
+	winc_debug(_winc_debug, "Data to send: %s\n",  (char *) data);
 	winc_debug(_winc_debug, "Data size: %i\n",  size);
 	winc_debug(_winc_debug, "strlen: %i\n",  strlen((char *)data));
 
@@ -465,9 +530,7 @@ int WINC1500Interface::socket_recv(void *handle, void *data, unsigned size)
 {
 
 	_mutex.lock();
-	unsigned recv = 0;
 	struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
-	char *ptr = (char *)data;
 
 	if (!socket->connected) {
 		_mutex.unlock();
@@ -487,6 +550,7 @@ int WINC1500Interface::socket_recv(void *handle, void *data, unsigned size)
 	sint16 err = WINC_SOCKET(recv)(socket->id, (void *) data, (uint16) size_to_receive, 100);
 	if (err != SOCK_ERR_NO_ERROR) {
 		winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
+		return NSAPI_ERROR_DEVICE_ERROR;
 	}
 	else {
 		winc_debug(_winc_debug, "Successfully requested recv");
@@ -540,8 +604,8 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void *pvMsg)
 	case M2M_WIFI_RESP_SCAN_RESULT:
 	{
 		tstrM2mWifiscanResult *pstrScanResult = (tstrM2mWifiscanResult *)pvMsg;
-		uint16_t demo_ssid_len;
-		uint16_t scan_ssid_len = strlen((const char *)pstrScanResult->au8SSID);
+
+//		uint16_t scan_ssid_len = strlen((const char *)pstrScanResult->au8SSID);
 
 		memcpy(&found_ap_list[scan_request_index], &pstrScanResult, sizeof(pstrScanResult));
 
@@ -799,7 +863,7 @@ void WINC1500Interface::dnsResolveCallback(uint8* pu8HostName ,uint32 u32ServerI
 					(int)IPV4_BYTE(u32ServerIP, 0), (int)IPV4_BYTE(u32ServerIP, 1),
 					(int)IPV4_BYTE(u32ServerIP, 2), (int)IPV4_BYTE(u32ServerIP, 3));
 
-		winc_debug(getInstance()._winc_debug, "DNS resolved. serve IP: 0x%x", u32ServerIP);
+		winc_debug(getInstance()._winc_debug, "DNS resolved. serve IP: 0x%x", (unsigned int)u32ServerIP);
 		getInstance().current_sock_addr.sin_addr.s_addr = u32ServerIP;
 		getInstance().socket_dns_resolved.release();
 	}
@@ -808,10 +872,4 @@ void WINC1500Interface::dnsResolveCallback(uint8* pu8HostName ,uint32 u32ServerI
 		winc_debug(getInstance()._winc_debug, "Got NULL resolve address!");
 	}
 }
-
-
-
-
-
-
 

@@ -29,20 +29,17 @@
 #include "rtos/EventFlags.h"
 
 
-/** TCP socket connection
+/** WINC1500 TLS socket connection
  */
 class WINC1500TLSSocket : public TCPSocket {
 public:
-
-
-
-    /** Opens a socket
+    /** Opens a winc1500 TLS socket
          *
          *  Creates a network socket on the network stack of the given
          *  network interface. Not needed if stack is passed to the
          *  socket's constructor.
          *
-         *  @param stack    Network stack as target for socket
+         *  @param stack    WINC1500Interface Network stack as target for socket
          *  @return         0 on success, negative error code on failure
          */
     nsapi_error_t open(WINC1500Interface *stack);

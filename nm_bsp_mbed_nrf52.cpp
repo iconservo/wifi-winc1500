@@ -18,7 +18,6 @@
  */
 
 #include "mbed.h"
-//#include <stdarg.h>
 #include "mbed_debug.h"
 #include "mbed_error.h"
 #define _Static_assert(...);

@@ -7,3 +7,5 @@ winc1500/host_drv/bsp/include/nm_bsp_samd21.h
 winc1500/host_drv/bsp/source/nm_bsp_samd21.c
 winc1500/host_drv/bus_wrapper/source/nm_bus_wrapper_samd21.c
 winc1500/host_drv/socket/source/socket.c
+winc1500/host_drv/socket/*
+mbed_bsp/patch_socket.c

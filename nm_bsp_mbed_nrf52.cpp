@@ -23,8 +23,8 @@
 #define _Static_assert(...);
 
 extern "C"{
-    #include "winc1500/host_drv/bsp/include/nm_bsp.h"
-	#include "mbed_bsp/bsp_mbed.h"
+    #include "nm_bsp.h"
+	#include "bsp_mbed.h"
 }
 
 

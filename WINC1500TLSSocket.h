@@ -1,13 +1,13 @@
 #ifndef WINC1500TLSSOCKET_H
 #define WINC1500TLSSOCKET_H
 
-#include "netsocket/TCPSocket.h"
-#include "wifi-winc1500/WINC1500Interface.h"
+#include "TCPSocket.h"
+#include "WINC1500Interface.h"
 #include "netsocket/Socket.h"
 #include "TCPSocket.h"
-#include "netsocket/NetworkStack.h"
-#include "netsocket/NetworkInterface.h"
-#include "rtos/EventFlags.h"
+#include "NetworkStack.h"
+#include "NetworkInterface.h"
+#include "EventFlags.h"
 
 /** WINC1500 TLS socket connection
  */

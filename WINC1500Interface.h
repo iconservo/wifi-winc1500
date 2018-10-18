@@ -7,10 +7,10 @@
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
 
 extern "C" {
-#include "wifi-winc1500/winc1500/host_drv/driver/include/m2m_wifi.h"
-#include "wifi-winc1500/winc1500/host_drv/driver/source/m2m_hif.h"
-#include "wifi-winc1500/winc1500/host_drv/driver/include/m2m_types.h"
-#include "wifi-winc1500/mbed_winc1500_socket/include/winc1500_socket.h"
+#include "m2m_wifi.h"
+#include "m2m_hif.h"
+#include "m2m_types.h"
+#include "winc1500_socket.h"
 }
 
 #ifndef MAX_NUM_APs

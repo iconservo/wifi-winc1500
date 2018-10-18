@@ -17,7 +17,7 @@
  * under the License.
  */
 #include "mbed_bsp/bsp_mbed.h"
-#include "mbed-os/targets/TARGET_NORDIC/TARGET_NRF5x/TARGET_SDK_14_2/drivers_nrf/hal/nrf_gpio.h"
+#include "nrf_gpio.h"
 
 
 #ifdef CONF_WINC_USE_SPI
@@ -28,14 +28,13 @@
 #include "mbed_debug.h"
 #include "mbed_error.h"
 
-//mbed specific GPIO handling
-static DigitalOut SS_PIN(CONF_WINC_SPI_SS);
-static SPI spi(CONF_WINC_SPI_MOSI, CONF_WINC_SPI_MISO, CONF_WINC_SPI_SCK); // mosi, miso, sclk
+// mosi, miso, sclk, ssel
+SPI spi(CONF_WINC_SPI_MOSI, CONF_WINC_SPI_MISO, CONF_WINC_SPI_SCK, CONF_WINC_SPI_SS);
 
 extern "C"
 {
 
-#include "winc1500/host_drv/bus_wrapper/include/nm_bus_wrapper.h"
+#include "nm_bus_wrapper.h"
     
     
 #define NM_BUS_MAX_TRX_SZ       256
@@ -54,6 +53,8 @@ nm_bus_init(void *pvinit)
 {
 
     spi.format(8,0);
+    spi.set_default_write_value(0x00);
+    spi.frequency(8000000);
 
     nrf_gpio_cfg(CONF_WINC_SPI_MOSI,
                  NRF_GPIO_PIN_DIR_INPUT,
@@ -88,37 +89,10 @@ nm_bus_deinit(void)
 static sint8
 nm_spi_rw(uint8 *pu8Mosi, uint8 *pu8Miso, uint16 u16Sz)
 {
-    int rc = 0;
-    uint8_t tx = 0;
-    uint8_t rx;
 
-    /* chip select */
-    SS_PIN.write(0);
-    
-    //sending one symbol at time
-    while (u16Sz) {
-        if (pu8Mosi) {
-            tx = *pu8Mosi;
-            pu8Mosi++;
-        }
+	spi.write((char *)pu8Mosi, pu8Mosi ? u16Sz : 0, (char *)pu8Miso, pu8Miso ? u16Sz : 0);
 
-        rx = (uint8_t) spi.write((int)tx);
-
-        if (pu8Miso) {
-            *pu8Miso = rx;
-            pu8Miso++;
-        }
-        u16Sz--;
-    }
-
-    //multiple SPI write
-//    rc = spi.write((const char*)pu8Mosi, (int)u16Sz, (char*)pu8Miso, (int)u16Sz);
-
-    /* chip deselect */
-    SS_PIN.write(1);
-
-
-    return rc;
+    return 0;
 }
 
 sint8

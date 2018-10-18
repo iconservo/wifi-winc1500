@@ -30,6 +30,9 @@ enum { true = 1, false =0 };
    ---------------------------------
 */
 
+/* Flash Chip Select pin */
+#define FLASH_SS						p24
+
 /** SPI pin and instance settings. */
 #define CONF_WINC_SPI_MODULE			0 /* SERCOM2 */
 #define CONF_WINC_SPI_SERCOM_MUX		0 /* SPI_SIGNAL_MUX_SETTING_D */
@@ -50,7 +53,7 @@ enum { true = 1, false =0 };
 #define CONF_WINC_SPI_INT_EIC			0 /* (9) */
 
 /** SPI clock. */
-#define CONF_WINC_SPI_CLOCK				12000000
+#define CONF_WINC_SPI_CLOCK				(12000000)
 
 /*
    ---------------------------------

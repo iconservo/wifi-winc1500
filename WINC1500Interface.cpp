@@ -13,7 +13,7 @@ WINC1500Interface::WINC1500Interface() {
     tstrWifiInitParam param;
     int8_t ret;
 
-    _winc_debug = _winc_debug || CONF_WINC_DEBUG;
+    _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
 
     /* Initialize the BSP. */
     nm_bsp_init();

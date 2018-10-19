@@ -12,7 +12,7 @@ enum { true = 1, false =0 };
 
 #endif
 
-//#define _Static_assert(...);
+#define _Static_assert(...);
 
 
 #define CONF_WINC_USE_SPI				(1)

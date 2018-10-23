@@ -21,12 +21,16 @@
             "help": "winc1500 reset",
             "value": "NC"
         },
-        "wifi-dataready": {
-            "help": "winc1500 dataready",
-            "value": "NC"
-        },
         "wifi-wakeup": {
             "help": "winc1500 wakeup",
+            "value": "NC"
+        },
+        "wifi-irq": {
+            "help" : "winc1500 interrupt pin",
+            "value": "NC"
+        },
+        "wifi-chip-enable": {
+            "help": "winc1500 chip enable pin",
             "value": "NC"
         },
         "enable_debug": {
@@ -38,3 +42,4 @@
     "macros" : [ "__APP_APS3_CORTUS__", "CONF_WINC_DEBUG=1",
         "NM_EDGE_INTERRUPT","CONF_WINC_USE_SPI" ]
 }
+

@@ -23,15 +23,15 @@
 #define _Static_assert(...);
 
 extern "C"{
-    #include "winc1500/host_drv/bsp/include/nm_bsp.h"
-	#include "mbed_bsp/bsp_mbed.h"
+    #include "nm_bsp.h"
+	#include "bsp_mbed.h"
 }
 
 
-static InterruptIn winc_irq_pin(CONF_WINC_SPI_INT_PIN);
-static DigitalOut reset_pin(CONF_WINC_PIN_RESET);
-static DigitalOut en_pin(CONF_WINC_PIN_CHIP_ENABLE);
-static DigitalOut wake_pin(CONF_WINC_PIN_WAKE);
+static InterruptIn winc_irq_pin(MBED_CONF_WINC1500_WIFI_IRQ);
+static DigitalOut reset_pin(MBED_CONF_WINC1500_WIFI_RESET);
+static DigitalOut en_pin(MBED_CONF_WINC1500_WIFI_CHIP_ENABLE);
+static DigitalOut wake_pin(MBED_CONF_WINC1500_WIFI_WAKEUP);
 
 
 static tpfNmBspIsr gpfIsr;

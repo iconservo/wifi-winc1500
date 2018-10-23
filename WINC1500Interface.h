@@ -7,10 +7,10 @@
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
 
 extern "C" {
-#include "wifi-winc1500/winc1500/host_drv/driver/include/m2m_wifi.h"
-#include "wifi-winc1500/winc1500/host_drv/driver/source/m2m_hif.h"
-#include "wifi-winc1500/winc1500/host_drv/driver/include/m2m_types.h"
-#include "wifi-winc1500/mbed_winc1500_socket/include/winc1500_socket.h"
+#include "m2m_wifi.h"
+#include "m2m_hif.h"
+#include "m2m_types.h"
+#include "winc1500_socket.h"
 }
 
 #ifndef MAX_NUM_APs
@@ -24,12 +24,12 @@ extern "C" {
 #define SSID_LEN 6
 
 // Various timeouts for different WINC1500 operations
-#define WINC1500_CONNECT_TIMEOUT 10000    /* milliseconds */
-#define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
-#define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
-#define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
-#define WINC1500_SEND_TIMEOUT 2000        /* milliseconds */
-#define WINC1500_RECV_TIMEOUT 1000        /* milliseconds */
+#define WINC1500_CONNECT_TIMEOUT 		10000 	/* milliseconds */
+#define WINC1500_DNS_RESOLVE_TIMEOUT 	1000   	/* milliseconds */
+#define WINC1500_DISCONNECT_TIMEOUT 	1000	/* milliseconds */
+#define WINC1500_SCAN_RESULT_TIMEOUT 	5000	/* milliseconds */
+#define WINC1500_SEND_TIMEOUT    		2000   	/* milliseconds */
+#define WINC1500_RECV_TIMEOUT    		3000   	/* milliseconds */
 
 #define winc_debug(cond, ...)                                        \
     if (cond) {                                                      \

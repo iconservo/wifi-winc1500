@@ -16,7 +16,7 @@ WINC1500Interface::WINC1500Interface() {
 
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
     enableInterface();
-
+    winc1500_sleep();
 }
 
 int WINC1500Interface::enableInterface() {

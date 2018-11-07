@@ -31,6 +31,7 @@ extern "C" {
 #define WINC1500_SEND_TIMEOUT    		2000   	/* milliseconds */
 #define WINC1500_RECV_TIMEOUT    		3000   	/* milliseconds */
 
+
 #define winc_debug(cond, ...)                                        \
     if (cond) {                                                      \
         printf("DEBUG: %s:%d:%s(): ", __FILE__, __LINE__, __func__); \
@@ -84,6 +85,10 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual int8_t get_rssi();
     virtual int scan(WiFiAccessPoint* res, unsigned count);
 
+    int enableInterface();
+    int disableInterface();
+
+
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
     virtual int socket_close(void* handle);
@@ -109,6 +114,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     Thread _wifi_thread;
     Semaphore _got_scan_result, _connected, _disconnected;
+    Mutex wifi_thread_enable_;
 
     // socket related private variables
     Thread _socket_thread;
@@ -146,13 +152,14 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     static void winc1500_wifi_cb(uint8_t u8MsgType, void* pvMsg);
     static void wifi_thread_cb();
 
-    static int winc1500_err_to_mn_err(int err);
+    static int winc1500_err_to_nsapi_err(int err);
 
     void socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg);
     static void winc1500_socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg);
 
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
+
 };
 
 #endif

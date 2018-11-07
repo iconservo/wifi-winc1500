@@ -10,6 +10,7 @@ extern "C" {
 #include "m2m_wifi.h"
 #include "m2m_hif.h"
 #include "m2m_types.h"
+#include "m2m_periph.h"
 #include "winc1500_socket.h"
 }
 
@@ -88,6 +89,11 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int enableInterface();
     int disableInterface();
 
+    int winc1500_reset(bool reset);
+    int winc1500_enable(bool enable);
+    int winc1500_wake(bool wake);
+
+    int winc1500_sleep();
 
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
@@ -159,6 +165,8 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
+
+    void disable_pullups();
 
 };
 

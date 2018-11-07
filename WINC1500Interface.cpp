@@ -8,6 +8,11 @@ uint8_t WINC1500Interface::_num_found_ap;
 
 nsapi_wifi_ap_t WINC1500Interface::_found_ap_list[MAX_NUM_APs];
 
+
+static DigitalOut reset_pin(MBED_CONF_WINC1500_WIFI_RESET);
+static DigitalOut en_pin(MBED_CONF_WINC1500_WIFI_CHIP_ENABLE);
+static DigitalOut wake_pin(MBED_CONF_WINC1500_WIFI_WAKEUP);
+
 WINC1500Interface::WINC1500Interface() {
 
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
@@ -67,6 +72,42 @@ int WINC1500Interface::disableInterface() {
 	return 0;
 }
 
+int WINC1500Interface::winc1500_reset(bool reset) {
+	reset_pin.write((reset) ? 1 : 0);
+}
+
+int WINC1500Interface::winc1500_enable(bool enable) {
+	en_pin.write((enable) ? 1 : 0);
+}
+
+int WINC1500Interface::winc1500_wake(bool wake) {
+	wake_pin.write((wake) ? 1 : 0);
+}
+
+void WINC1500Interface::disable_pullups(void)
+{
+	uint32 pinmask;
+
+	pinmask = (
+	M2M_PERIPH_PULLUP_DIS_HOST_WAKEUP|
+	M2M_PERIPH_PULLUP_DIS_GPIO_3|
+	M2M_PERIPH_PULLUP_DIS_GPIO_5|
+	M2M_PERIPH_PULLUP_DIS_SD_DAT0_SPI_TXD|
+	M2M_PERIPH_PULLUP_DIS_GPIO_6);
+
+	m2m_periph_pullup_ctrl(pinmask, 0);
+}
+
+int WINC1500Interface::winc1500_sleep() {
+
+	disable_pullups();
+	tstrM2mLsnInt strM2mLsnInt;
+	m2m_wifi_set_sleep_mode(M2M_PS_DEEP_AUTOMATIC, 1);
+	strM2mLsnInt.u16LsnInt = M2M_LISTEN_INTERVAL;
+	m2m_wifi_set_lsn_int(&strM2mLsnInt);
+
+	return 0;
+}
 
 WINC1500Interface& WINC1500Interface::getInstance() {
     static WINC1500Interface instance;

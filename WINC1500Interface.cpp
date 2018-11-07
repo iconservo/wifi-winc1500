@@ -8,7 +8,6 @@ uint8_t WINC1500Interface::_num_found_ap;
 
 nsapi_wifi_ap_t WINC1500Interface::_found_ap_list[MAX_NUM_APs];
 
-
 static DigitalOut reset_pin(MBED_CONF_WINC1500_WIFI_RESET);
 static DigitalOut en_pin(MBED_CONF_WINC1500_WIFI_CHIP_ENABLE);
 static DigitalOut wake_pin(MBED_CONF_WINC1500_WIFI_WAKEUP);

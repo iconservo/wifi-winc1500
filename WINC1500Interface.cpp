@@ -17,6 +17,7 @@ WINC1500Interface::WINC1500Interface() {
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
     enableInterface();
     winc1500_sleep();
+
 }
 
 int WINC1500Interface::enableInterface() {
@@ -529,7 +530,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             memcpy(&_found_ap_list[_scan_request_index], &pstrScanResult, sizeof(tstrM2mWifiscanResult));
 
             /* display found AP. */
-            printf("[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
+            winc_debug(_winc_debug, "[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
 
             strncpy(_found_ap_list[_scan_request_index].ssid, (const char*)pstrScanResult->au8SSID, 33);
             _found_ap_list[_scan_request_index].rssi = pstrScanResult->s8rssi;
@@ -559,9 +560,9 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
                 m2m_wifi_request_dhcp_client();
 
             } else if (pstrWifiState->u8CurrState == M2M_WIFI_DISCONNECTED) {
-                printf("M2M_WIFI_RESP_CON_STATE_CHANGED. DISCONENCTED\r\n");
+            	winc_debug(_winc_debug, "M2M_WIFI_RESP_CON_STATE_CHANGED. DISCONENCTED\r\n");
 
-                printf("Wi-Fi disconnected\r\n");
+            	winc_debug(_winc_debug, "Wi-Fi disconnected\r\n");
 
                 _disconnected.release();
             }
@@ -570,14 +571,14 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
         }
 
         case M2M_WIFI_REQ_CONN: {
-            printf("M2M_WIFI_REQ_CONN");
+        	winc_debug(_winc_debug, "M2M_WIFI_REQ_CONN");
             break;
         }
 
         case M2M_WIFI_REQ_DHCP_CONF: {
             uint8_t* pu8IPAddress = (uint8_t*)pvMsg;
-            printf("Wi-Fi connected\r\n");
-            printf("Wi-Fi IP is %u.%u.%u.%u\r\n", pu8IPAddress[0], pu8IPAddress[1], pu8IPAddress[2], pu8IPAddress[3]);
+            winc_debug(_winc_debug, "Wi-Fi connected\r\n");
+            winc_debug(_winc_debug, "Wi-Fi IP is %u.%u.%u.%u\r\n", pu8IPAddress[0], pu8IPAddress[1], pu8IPAddress[2], pu8IPAddress[3]);
 
             // release the connection semaphore
             _connected.release();

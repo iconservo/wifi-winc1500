@@ -61,7 +61,7 @@ enum { true = 1, false =0 };
    ---------------------------------
 */
 
-#define CONF_WINC_DEBUG					(1)
+#define CONF_WINC_DEBUG					(0)
 
 
 #define CONF_WINC_PRINTF(...) printf( __VA_ARGS__ )

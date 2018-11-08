@@ -16,7 +16,8 @@ WINC1500Interface::WINC1500Interface() {
 
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
     enableInterface();
-    winc1500_sleep();
+    winc1500_automatic_sleep(1);
+
 }
 
 int WINC1500Interface::enableInterface() {
@@ -97,16 +98,37 @@ void WINC1500Interface::disable_pullups(void)
 	m2m_periph_pullup_ctrl(pinmask, 0);
 }
 
-int WINC1500Interface::winc1500_sleep() {
+int WINC1500Interface::winc1500_automatic_sleep(int lstn_int=1) {
 
 	disable_pullups();
 	tstrM2mLsnInt strM2mLsnInt;
-	m2m_wifi_set_sleep_mode(M2M_PS_DEEP_AUTOMATIC, 1);
-	strM2mLsnInt.u16LsnInt = M2M_LISTEN_INTERVAL;
+
+	uint8_t en_broadcast_data = 1;
+
+	if (lstn_int > 1) {
+		en_broadcast_data = 0;
+		strM2mLsnInt.u16LsnInt = lstn_int;
+	}
+	else {
+		strM2mLsnInt.u16LsnInt = M2M_LISTEN_INTERVAL;
+	}
+
+	m2m_wifi_set_sleep_mode(M2M_PS_DEEP_AUTOMATIC, en_broadcast_data);
 	m2m_wifi_set_lsn_int(&strM2mLsnInt);
 
 	return 0;
 }
+
+int WINC1500Interface::winc1500_manual_sleep(uint32_t sleep_time_ms) {
+
+	disable_pullups();
+
+	m2m_wifi_set_sleep_mode(M2M_PS_MANUAL, 0);
+	m2m_wifi_request_sleep(sleep_time_ms);
+
+	return 0;
+}
+
 
 WINC1500Interface& WINC1500Interface::getInstance() {
     static WINC1500Interface instance;

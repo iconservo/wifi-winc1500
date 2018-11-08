@@ -93,7 +93,8 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc1500_enable(bool enable);
     int winc1500_wake(bool wake);
 
-    int winc1500_sleep();
+    int winc1500_automatic_sleep(int lstn_int);
+    int winc1500_manual_sleep(uint32_t sleep_time_ms);
 
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);

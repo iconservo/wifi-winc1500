@@ -16,17 +16,22 @@ WINC1500Interface::WINC1500Interface() {
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
 
     /* Initialize the BSP. */
+
+    is_initialized = true;
+
     nm_bsp_init();
 
     /* Initialize Wi-Fi driver with data and status callbacks. */
     param.pfAppWifiCb = winc1500_wifi_cb;
     ret = m2m_wifi_init(&param);
     if (M2M_SUCCESS != ret) {
-        WINC_FATAL_ERROR("main: m2m_wifi_init call error!(%d)\r\n", ret);
-
-        //		printf("main: m2m_wifi_init call error!(%d)\r\n", ret);
-        //		while (1) {
-        //		}
+        is_initialized = false;
+        switch (ret) {
+            case M2M_ERR_FIRMWARE:
+                winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
+            case M2M_ERR_FAIL:
+                winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
+        }
     }
 
     winc_debug(_winc_debug, "Starting winc..");
@@ -39,7 +44,20 @@ WINC1500Interface& WINC1500Interface::getInstance() {
     return instance;
 }
 
+int WINC1500Interface::isInitialized() {
+    if (!is_initialized) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
+        return 0;
+    }
+
+    return 1;
+}
+
 int WINC1500Interface::connect(const char* ssid, const char* pass, nsapi_security_t security, uint8_t channel) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     set_credentials(ssid, pass, security);
     set_channel(channel);
 
@@ -47,6 +65,10 @@ int WINC1500Interface::connect(const char* ssid, const char* pass, nsapi_securit
 }
 
 int WINC1500Interface::connect() {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     sint8 ret = m2m_wifi_connect((char*)_ap_ssid, strlen(_ap_ssid), _ap_sec, (void*)_ap_pass, _ap_ch);
 
     uint32_t tok = _connected.wait(WINC1500_CONNECT_TIMEOUT);
@@ -64,6 +86,10 @@ int WINC1500Interface::connect() {
 }
 
 nsapi_error_t WINC1500Interface::gethostbyname(const char* name, SocketAddress* address, nsapi_version_t version) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     ScopedLock<Mutex> lock(_mutex);
 
     winc_debug(_winc_debug, "WINC1500Interface::gethostbyname entry point");
@@ -131,6 +157,10 @@ int WINC1500Interface::set_channel(uint8_t channel) {
 }
 
 int WINC1500Interface::disconnect() {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     ScopedLock<Mutex> lock(_mutex);
 
     m2m_wifi_disconnect();
@@ -165,6 +195,10 @@ int8_t WINC1500Interface::get_rssi() {
 }
 
 int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     m2m_wifi_request_scan(M2M_WIFI_CH_ALL);
 
     uint32_t tok = _got_scan_result.wait(WINC1500_SCAN_RESULT_TIMEOUT);
@@ -183,10 +217,18 @@ int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
 /**********************SOCKET**************************/
 
 int WINC1500Interface::socket_open_tls(void** handle, nsapi_protocol_t proto, unsigned use_tls) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     socket_open_private(handle, proto, true);
 }
 
 int WINC1500Interface::socket_open(void** handle, nsapi_protocol_t proto) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     socket_open_private(handle, proto, false);
 }
 

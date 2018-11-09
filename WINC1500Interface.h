@@ -24,25 +24,18 @@ extern "C" {
 #define SSID_LEN 6
 
 // Various timeouts for different WINC1500 operations
-#define WINC1500_CONNECT_TIMEOUT 		10000 	/* milliseconds */
-#define WINC1500_DNS_RESOLVE_TIMEOUT 	1000   	/* milliseconds */
-#define WINC1500_DISCONNECT_TIMEOUT 	1000	/* milliseconds */
-#define WINC1500_SCAN_RESULT_TIMEOUT 	5000	/* milliseconds */
-#define WINC1500_SEND_TIMEOUT    		2000   	/* milliseconds */
-#define WINC1500_RECV_TIMEOUT    		3000   	/* milliseconds */
+#define WINC1500_CONNECT_TIMEOUT 10000    /* milliseconds */
+#define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
+#define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
+#define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
+#define WINC1500_SEND_TIMEOUT 2000        /* milliseconds */
+#define WINC1500_RECV_TIMEOUT 3000        /* milliseconds */
 
 #define winc_debug(cond, ...)                                        \
     if (cond) {                                                      \
         printf("DEBUG: %s:%d:%s(): ", __FILE__, __LINE__, __func__); \
         printf(__VA_ARGS__);                                         \
         printf("\n");                                                \
-    }
-
-#define WINC_FATAL_ERROR(format, ...) \
-    {                                 \
-        printf(format, __VA_ARGS__);  \
-        while (1) {                   \
-        }                             \
     }
 
 #define IPV4_BYTE(val, index) ((val >> (index * 8)) & 0xFF)
@@ -120,6 +113,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     struct WINC1500_socket _socker_arr[MAX_SOCKET] = {0};
 
     bool _winc_debug;
+    bool is_initialized;
 
     /** Index of scan list to request scan result. */
     static uint8_t _scan_request_index;
@@ -153,6 +147,8 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
+
+    int isInitialized();
 };
 
 #endif

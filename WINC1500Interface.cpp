@@ -44,17 +44,13 @@ WINC1500Interface& WINC1500Interface::getInstance() {
     return instance;
 }
 
-int WINC1500Interface::isInitialized() {
-    if (!is_initialized) {
-        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
-        return 0;
-    }
-
-    return 1;
+bool WINC1500Interface::isInitialized() {
+    return is_initialized;
 }
 
 int WINC1500Interface::connect(const char* ssid, const char* pass, nsapi_security_t security, uint8_t channel) {
     if (!isInitialized()) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
@@ -66,6 +62,7 @@ int WINC1500Interface::connect(const char* ssid, const char* pass, nsapi_securit
 
 int WINC1500Interface::connect() {
     if (!isInitialized()) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
@@ -87,6 +84,7 @@ int WINC1500Interface::connect() {
 
 nsapi_error_t WINC1500Interface::gethostbyname(const char* name, SocketAddress* address, nsapi_version_t version) {
     if (!isInitialized()) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
@@ -158,6 +156,7 @@ int WINC1500Interface::set_channel(uint8_t channel) {
 
 int WINC1500Interface::disconnect() {
     if (!isInitialized()) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
@@ -196,6 +195,7 @@ int8_t WINC1500Interface::get_rssi() {
 
 int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
     if (!isInitialized()) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
@@ -218,6 +218,7 @@ int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
 
 int WINC1500Interface::socket_open_tls(void** handle, nsapi_protocol_t proto, unsigned use_tls) {
     if (!isInitialized()) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
@@ -226,6 +227,7 @@ int WINC1500Interface::socket_open_tls(void** handle, nsapi_protocol_t proto, un
 
 int WINC1500Interface::socket_open(void** handle, nsapi_protocol_t proto) {
     if (!isInitialized()) {
+        winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 

@@ -148,7 +148,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
 
-    int isInitialized();
+    bool isInitialized();
 };
 
 #endif

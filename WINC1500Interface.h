@@ -13,6 +13,7 @@ extern "C" {
 #include "m2m_types.h"
 #include "m2m_periph.h"
 #include "winc1500_socket.h"
+#include "winc1500/host_drv/driver/include/m2m_periph.h"
 }
 
 #ifndef MAX_NUM_APs

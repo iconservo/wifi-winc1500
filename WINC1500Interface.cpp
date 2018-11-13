@@ -1,6 +1,8 @@
 #include "WINC1500Interface.h"
 #include "TCPSocket.h"
 #include "ScopedLock.h"
+//#include "m2m_periph.h"
+
 
 uint8_t WINC1500Interface::_scan_request_index;
 /** Number of APs found. */
@@ -11,6 +13,9 @@ nsapi_wifi_ap_t WINC1500Interface::_found_ap_list[MAX_NUM_APs];
 static DigitalOut reset_pin(MBED_CONF_WINC1500_WIFI_RESET);
 static DigitalOut en_pin(MBED_CONF_WINC1500_WIFI_CHIP_ENABLE);
 static DigitalOut wake_pin(MBED_CONF_WINC1500_WIFI_WAKEUP);
+
+extern EventFlags irq_event;
+
 
 WINC1500Interface::WINC1500Interface() {
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
@@ -727,10 +732,13 @@ void WINC1500Interface::wifi_thread_cb() {
     while (1) {
         /* Handle pending events from network controller. */
         getInstance().wifi_thread_enable_.lock();
-        while (m2m_wifi_handle_events(NULL) != M2M_SUCCESS) {
-            wait_ms(1);
-        }
         getInstance().wifi_thread_enable_.unlock();
+
+        irq_event.wait_all(0x1);
+
+        if(m2m_wifi_handle_events(NULL) != M2M_SUCCESS) {
+
+        }
     }
 }
 

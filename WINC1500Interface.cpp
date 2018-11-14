@@ -735,6 +735,7 @@ void WINC1500Interface::wifi_thread_cb() {
         getInstance().wifi_thread_enable_.unlock();
 
         irq_event.wait_all(0x1);
+        wait_ms(1);
 
         if(m2m_wifi_handle_events(NULL) != M2M_SUCCESS) {
 

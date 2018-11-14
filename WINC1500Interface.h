@@ -54,6 +54,11 @@ struct WINC1500_socket {
      * A flag for the whether using the TLS socket or not.
      */
     uint8_t tls;
+
+    /**
+     * Internal buffer to hold TCP MTU packets
+     */
+    uint8_t buffer[1500];
 };
 
 class WINC1500Interface : public NetworkStack, public WiFiInterface {

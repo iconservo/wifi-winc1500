@@ -438,7 +438,7 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     winc_debug(_winc_debug, "socket_id = %i", socket->id);
     winc_debug(_winc_debug, "amount of data to receive = %i", size);
 
-    sint16 err = WINC_SOCKET(recv)(socket->id, (void*)data, (uint16)size, 100);
+    sint16 err = WINC_SOCKET(recv)(socket->id, (void*)data, (uint16)size, WINC1500_RECV_TIMEOUT);
     if (err != SOCK_ERR_NO_ERROR) {
         winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
         return NSAPI_ERROR_DEVICE_ERROR;

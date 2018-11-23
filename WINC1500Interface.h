@@ -56,6 +56,13 @@ struct WINC1500_socket {
     uint8_t tls;
 };
 
+struct connection_info {
+    uint32 u32IP;
+    uint32 u32Gateway;
+    uint32 u32SubnetMask;
+    sint8 rssi;
+};
+
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
    public:
     virtual int connect();
@@ -101,7 +108,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     static WINC1500Interface* instance;
 
     Thread _wifi_thread;
-    Semaphore _got_scan_result, _connected, _disconnected;
+    Semaphore _got_scan_result, _connected, _disconnected, _rssi_request;
 
     // socket related private variables
     Thread _socket_thread;
@@ -111,10 +118,13 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     bool _ids[MAX_SOCKET];
     WINC1500_socket* _socket_obj[MAX_SOCKET];  // store addresses of socket handles
     struct WINC1500_socket _socker_arr[MAX_SOCKET] = {0};
+    struct connection_info _ip_config;
 
     bool _winc_debug;
     bool is_initialized;
 
+    /** Output buffer for return string variables. */
+    char output_buffer[20];
     /** Index of scan list to request scan result. */
     static uint8_t _scan_request_index;
     /** Number of APs found. */

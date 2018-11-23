@@ -8,6 +8,12 @@ uint8_t WINC1500Interface::_num_found_ap;
 
 nsapi_wifi_ap_t WINC1500Interface::_found_ap_list[MAX_NUM_APs];
 
+const char* ip_to_str(const uint32* ip_addr, char* buf, int len) {
+    uint8* p8ip = (uint8*)ip_addr;
+    snprintf(buf, len, "%u.%u.%u.%u", p8ip[0], p8ip[1], p8ip[2], p8ip[3]);
+    return buf;
+}
+
 WINC1500Interface::WINC1500Interface() {
     // init sequence
     tstrWifiInitParam param;
@@ -174,23 +180,36 @@ int WINC1500Interface::disconnect() {
 }
 
 const char* WINC1500Interface::get_ip_address() {
-    return "ERROR";
+    return ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer));
 }
 
 const char* WINC1500Interface::get_mac_address() {
-    return "ERROR";
+    uint8 mac_buffer[6];
+    if (m2m_wifi_get_mac_address(mac_buffer) != M2M_SUCCESS)
+        return "ERROR";
+    snprintf(output_buffer, sizeof(output_buffer), "%02X:%02X:%02X:%02X:%02X:%02X", mac_buffer[0], mac_buffer[1],
+             mac_buffer[2], mac_buffer[3], mac_buffer[4], mac_buffer[5]);
+    return (const char*)&output_buffer;
 }
 
 const char* WINC1500Interface::get_gateway() {
-    return "ERROR";
+    return ip_to_str(&_ip_config.u32Gateway, output_buffer, sizeof(output_buffer));
 }
 
 const char* WINC1500Interface::get_netmask() {
-    return "ERROR";
+    return ip_to_str(&_ip_config.u32SubnetMask, output_buffer, sizeof(output_buffer));
 }
 
 int8_t WINC1500Interface::get_rssi() {
-    return -1;
+    if (m2m_wifi_req_curr_rssi() != M2M_SUCCESS) {
+        winc_debug(_winc_debug, "RSSI request timeout!");
+        return 1;
+    }
+    uint32_t tok = _rssi_request.wait(WINC1500_SEND_TIMEOUT);
+    if (!tok) {
+        return 1;
+    }
+    return _ip_config.rssi;
 }
 
 int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
@@ -522,6 +541,9 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
                 m2m_wifi_request_dhcp_client();
 
             } else if (pstrWifiState->u8CurrState == M2M_WIFI_DISCONNECTED) {
+                _ip_config.u32IP = 0;
+                _ip_config.u32Gateway = 0;
+                _ip_config.u32SubnetMask = 0;
                 printf("M2M_WIFI_RESP_CON_STATE_CHANGED. DISCONENCTED\r\n");
 
                 printf("Wi-Fi disconnected\r\n");
@@ -538,14 +560,22 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
         }
 
         case M2M_WIFI_REQ_DHCP_CONF: {
-            uint8_t* pu8IPAddress = (uint8_t*)pvMsg;
+            tstrM2MIPConfig* pIPAddress = (tstrM2MIPConfig*)pvMsg;
+            _ip_config.u32IP = pIPAddress->u32StaticIP;
+            _ip_config.u32Gateway = pIPAddress->u32Gateway;
+            _ip_config.u32SubnetMask = pIPAddress->u32SubnetMask;
             printf("Wi-Fi connected\r\n");
-            printf("Wi-Fi IP is %u.%u.%u.%u\r\n", pu8IPAddress[0], pu8IPAddress[1], pu8IPAddress[2], pu8IPAddress[3]);
+            printf("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
 
             // release the connection semaphore
             _connected.release();
 
             break;
+        }
+        case M2M_WIFI_RESP_CURRENT_RSSI: {
+            sint8* ptrssi = (sint8*)pvMsg;
+            _ip_config.rssi = *ptrssi;
+            _rssi_request.release();
         }
     }
 }

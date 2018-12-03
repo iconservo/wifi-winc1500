@@ -83,6 +83,8 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual const char* get_netmask();
     virtual int8_t get_rssi();
     virtual int scan(WiFiAccessPoint* res, unsigned count);
+    const char* get_otp_mac_address();
+    int set_mac_address(const uint8* mac_address);
 
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);

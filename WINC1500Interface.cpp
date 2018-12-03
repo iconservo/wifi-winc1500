@@ -192,6 +192,21 @@ const char* WINC1500Interface::get_mac_address() {
     return (const char*)&output_buffer;
 }
 
+const char* WINC1500Interface::get_otp_mac_address() {
+    uint8 mac_is_valid, mac_buffer[6];
+    if (m2m_wifi_get_otp_mac_address(mac_buffer, &mac_is_valid) != M2M_SUCCESS)
+        return "ERROR";
+    snprintf(output_buffer, sizeof(output_buffer), "%02X:%02X:%02X:%02X:%02X:%02X", mac_buffer[0], mac_buffer[1],
+             mac_buffer[2], mac_buffer[3], mac_buffer[4], mac_buffer[5]);
+    return (const char*)&output_buffer;
+}
+
+int WINC1500Interface::set_mac_address(const uint8* mac_address) {
+    uint8 mac_buffer[6];
+    memcpy(mac_buffer, mac_address, 6);
+    return m2m_wifi_set_mac_address(mac_buffer);
+}
+
 const char* WINC1500Interface::get_gateway() {
     return ip_to_str(&_ip_config.u32Gateway, output_buffer, sizeof(output_buffer));
 }

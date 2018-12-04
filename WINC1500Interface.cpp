@@ -256,7 +256,7 @@ int WINC1500Interface::socket_open_tls(void** handle, nsapi_protocol_t proto, un
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
-    socket_open_private(handle, proto, true);
+    return socket_open_private(handle, proto, true);
 }
 
 int WINC1500Interface::socket_open(void** handle, nsapi_protocol_t proto) {
@@ -265,7 +265,7 @@ int WINC1500Interface::socket_open(void** handle, nsapi_protocol_t proto) {
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
-    socket_open_private(handle, proto, false);
+    return socket_open_private(handle, proto, false);
 }
 
 int WINC1500Interface::find_free_socket() {

@@ -227,6 +227,12 @@ int8_t WINC1500Interface::get_rssi() {
     return _ip_config.rssi;
 }
 
+int WINC1500Interface::flash_read(uint8_t channel) {
+    _ap_ch = channel;
+    return NSAPI_ERROR_OK;
+}
+
+
 int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
     if (!isInitialized()) {
         winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");

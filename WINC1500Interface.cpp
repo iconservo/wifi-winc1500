@@ -227,11 +227,16 @@ int8_t WINC1500Interface::get_rssi() {
     return _ip_config.rssi;
 }
 
-int WINC1500Interface::flash_read(uint8_t channel) {
-    _ap_ch = channel;
-    return NSAPI_ERROR_OK;
+int WINC1500Interface::winc_flash_read(char *str, char *addr, char *num) {
+
+    return spi_flash_read(str, atoi(addr), atoi (num));
 }
 
+int WINC1500Interface::winc_write_chip(void) {
+    spi_flash_erase(0, m2m_aio_3a0_bin_len);
+    spi_flash_write(m2m_aio_3a0_bin, 0, m2m_aio_3a0_bin_len);
+    return NSAPI_ERROR_OK;
+}
 
 int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
     if (!isInitialized()) {

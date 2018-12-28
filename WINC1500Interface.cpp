@@ -786,3 +786,11 @@ void WINC1500Interface::dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerI
         winc_debug(_winc_debug, "Got NULL resolve address!");
     }
 }
+
+#if MBED_WINC1500_PROVIDE_DEFAULT
+
+WiFiInterface *WiFiInterface::get_default_instance() {
+
+	return &WINC1500Interface::getInstance();
+}
+#endif

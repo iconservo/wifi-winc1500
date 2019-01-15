@@ -4,8 +4,14 @@
 #include <stdlib.h>
 #include "mbed_debug.h"
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
+void printf_all(const char* format, ...);
+
+#ifndef __cplusplus
 // winc headers use this in C compile mode
 typedef unsigned char bool;
 enum { true = 1, false =0 };
@@ -14,7 +20,7 @@ enum { true = 1, false =0 };
 
 #define _Static_assert(...);
 
-
+#undef CONF_WINC_USE_SPI
 #define CONF_WINC_USE_SPI				(1)
 
 
@@ -61,19 +67,53 @@ enum { true = 1, false =0 };
    ---------------------------------
 */
 
-#define CONF_WINC_DEBUG					(1)
+#undef CONF_WINC_DEBUG
+#define CONF_WINC_DEBUG					        (1)
+
+#define M2M_LOG_NONE									0
+#define M2M_LOG_ERROR								1
+#define M2M_LOG_INFO									2
+#define M2M_LOG_REQ									3
+#define M2M_LOG_DBG									4
 
 
-#define CONF_WINC_PRINTF(...) printf( __VA_ARGS__ )
+#define CONF_WINC_PRINTF(...)                printf_all( __VA_ARGS__ )
 
-//
-//#if !defined(WINC1500_NO_DEBUG) && MBED_WINC1500_ENABLE_DEBUG
-//#define CONF_WINC_PRINTF(...) printf( __VA_ARGS__ )
-//#elif !defined(WINC1500_NO_DEBUG) && !defined(MBED_WINC1500_ENABLE_DEBUG)
-//#define CONF_WINC_PRINTF(...) debug( __VA_ARGS__ )
-//#else
-//#define CONF_WINC_PRINTF(...) {}
-//#endif
+
+#undef M2M_LOG_LEVEL
+#define M2M_LOG_LEVEL								M2M_LOG_ERROR
+
+
+#define M2M_ERR(...)
+#define M2M_INFO(...)
+#define M2M_REQ(...)
+#define M2M_DBG(...)
+#define M2M_PRINT(...)
+
+#if (CONF_WINC_DEBUG == 1)
+#undef M2M_PRINT
+#define M2M_PRINT(...)							do{CONF_WINC_PRINTF(__VA_ARGS__);}while(0)
+#if (M2M_LOG_LEVEL >= M2M_LOG_ERROR)
+#undef M2M_ERR
+#define M2M_ERR(...)							do{CONF_WINC_PRINTF("(APP)(ERR)[%s][%d]",__FUNCTION__,__LINE__); CONF_WINC_PRINTF(__VA_ARGS__);CONF_WINC_PRINTF("\r");}while(0)
+#if (M2M_LOG_LEVEL >= M2M_LOG_INFO)
+#undef M2M_INFO
+#define M2M_INFO(...)							do{CONF_WINC_PRINTF("(APP)(INFO)"); CONF_WINC_PRINTF(__VA_ARGS__);CONF_WINC_PRINTF("\r");}while(0)
+#if (M2M_LOG_LEVEL >= M2M_LOG_REQ)
+#undef M2M_REQ
+#define M2M_REQ(...)							do{CONF_WINC_PRINTF("(APP)(R)"); CONF_WINC_PRINTF(__VA_ARGS__);CONF_WINC_PRINTF("\r");}while(0)
+#if (M2M_LOG_LEVEL >= M2M_LOG_DBG)
+#undef M2M_DBG
+#define M2M_DBG(...)							do{CONF_WINC_PRINTF("(APP)(DBG)[%s][%d]",__FUNCTION__,__LINE__); CONF_WINC_PRINTF(__VA_ARGS__);CONF_WINC_PRINTF("\r");}while(0)
+#endif /*M2M_LOG_DBG*/
+#endif /*M2M_LOG_REQ*/
+#endif /*M2M_LOG_INFO*/
+#endif /*M2M_LOG_ERROR*/
+#endif /*CONF_WINC_DEBUG */
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif //_NM_BSP_MBED_H_
-

@@ -134,15 +134,20 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     static nsapi_wifi_ap_t _found_ap_list[MAX_NUM_APs];
 
-    char _ap_ssid[33]; /* 32 is what 802.11 defines as longest possible name; +1 for the \0 */
-    tenuM2mSecType _ap_sec;
-    uint8_t _ap_ch;
-    char _ap_pass[64]; /* The longest allowed passphrase */
+    char _ap_ssid[33] = MBED_CONF_NSAPI_DEFAULT_WIFI_SSID; /* 32 is what 802.11 defines as longest possible name; +1 for the \0 */
+    tenuM2mSecType _ap_sec = M2M_WIFI_SEC_WPA_PSK;
+    uint8_t _ap_ch = M2M_WIFI_CH_ALL;
+    char _ap_pass[64] = MBED_CONF_NSAPI_DEFAULT_WIFI_PASSWORD; /* The longest allowed passphrase */
 
     // todo:fix me: add this field to Winc1500 socket array
     struct sockaddr_in _current_sock_addr;
 
     uint16_t _received_data_size;
+
+    union {
+        uint32_t p32ip_addr;
+        uint8_t p8ip_addr[NSAPI_IPv4_BYTES];
+    } _resolved_DNS_addr;
 
     WINC1500Interface();
     WINC1500Interface(WINC1500Interface const&);  // Don't Implement.

@@ -56,14 +56,21 @@ nm_bus_init(void *pvinit)
     spi.set_default_write_value(0x00);
     spi.frequency(8000000);
 
-    nrf_gpio_cfg(CONF_WINC_SPI_MOSI,
+    nrf_gpio_cfg(MBED_CONF_WINC1500_WIFI_MOSI,
                  NRF_GPIO_PIN_DIR_INPUT,
                  NRF_GPIO_PIN_INPUT_CONNECT,
                  NRF_GPIO_PIN_NOPULL,
 				 NRF_GPIO_PIN_H0H1,
                  NRF_GPIO_PIN_NOSENSE);
 
-    nrf_gpio_cfg(CONF_WINC_SPI_SCK,
+    nrf_gpio_cfg(MBED_CONF_WINC1500_WIFI_MISO,
+                 NRF_GPIO_PIN_DIR_INPUT,
+                 NRF_GPIO_PIN_INPUT_CONNECT,
+                 NRF_GPIO_PIN_NOPULL,
+				 NRF_GPIO_PIN_H0H1,
+                 NRF_GPIO_PIN_NOSENSE);
+
+    nrf_gpio_cfg(MBED_CONF_WINC1500_WIFI_SCLK,
                      NRF_GPIO_PIN_DIR_INPUT,
                      NRF_GPIO_PIN_INPUT_CONNECT,
                      NRF_GPIO_PIN_NOPULL,

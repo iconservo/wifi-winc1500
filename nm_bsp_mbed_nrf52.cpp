@@ -52,6 +52,7 @@ static void init_chip_pins(void)
 {
 	reset_pin.write(0);
 	en_pin.write(0);
+	wake_pin.write(0);
 }
 
 

@@ -368,6 +368,7 @@ int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
 /**********************SOCKET**************************/
 
 int WINC1500Interface::socket_open_tls(void** handle, nsapi_protocol_t proto, unsigned use_tls) {
+    winc_debug(_winc_debug, "WINC1500Interface::socket_open_tls");
     if (!isInitialized()) {
         winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
@@ -377,6 +378,7 @@ int WINC1500Interface::socket_open_tls(void** handle, nsapi_protocol_t proto, un
 }
 
 int WINC1500Interface::socket_open(void** handle, nsapi_protocol_t proto) {
+    winc_debug(_winc_debug, "WINC1500Interface::socket_open");
     if (!isInitialized()) {
         winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
@@ -407,12 +409,9 @@ int WINC1500Interface::find_free_socket() {
 int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto, bool use_tls=false) {
     ScopedLock<Mutex> lock(_mutex);
 
-    /* Initialize socket module. */
-    //WINC_SOCKET(socketInit)();
-    /* Register socket callback function. */
-    //WINC_SOCKET(registerSocketCallback)(winc1500_socket_cb, winc1500_dnsResolveCallback);
+    winc_debug(_winc_debug, "socket->tls =%i\n", (int)socket->tls);
 
-    int idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, use_tls);
+    int idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, socket->tls);
 
     if (idx >= 0) {
 	
@@ -424,7 +423,7 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
 	}
 	socket->id = idx;
 
-        winc_debug(_winc_debug, "WINC1500Interface: socket_opened, id=%d\n", socket->id);
+    winc_debug(_winc_debug, "WINC1500Interface: socket_opened, id=%d\n", socket->id);
 
 	socket->tls = use_tls;
 	if (!use_tls) {
@@ -447,9 +446,8 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
     if (idx < 0) {
         winc_debug(_winc_debug, "socket creating failure!");
         return NSAPI_ERROR_NO_SOCKET;
-    } else {
-        return NSAPI_ERROR_OK;
-    }
+    } 
+    return NSAPI_ERROR_OK;
 }
 
 int WINC1500Interface::socket_close(void* handle) {
@@ -525,10 +523,8 @@ int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     winc_debug(_winc_debug, "Got address: %s\n", addr.get_ip_address());
     winc_debug(_winc_debug, "Got port: %x\n", addr.get_port());
 
-    winc_debug(_winc_debug, "Socket address: %s\n", socket->addr.get_ip_address());
-
     winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", (unsigned int)_current_sock.sin_addr.s_addr);
-    winc_debug(_winc_debug, "_current_sock_addr.sin_port: %u\n", _current_sock.sin_port);
+    winc_debug(_winc_debug, "_current_sock_addr.sin_port: %x\n", _current_sock.sin_port);
 
     int rc = WINC_SOCKET(connect)(socket->id, (struct sockaddr*)&_current_sock, sizeof(struct sockaddr));
 
@@ -610,7 +606,7 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
         winc_debug(_winc_debug, "Recv semaphore released!");
         winc_debug(_winc_debug, "Recv data size: %i", sizeof(data));
 
-        return _received_data_size;
+        return _received_data_size; //to do: fix recv function
     }
 }
 

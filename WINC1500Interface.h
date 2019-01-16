@@ -24,7 +24,7 @@ extern "C" {
 #define SSID_LEN 6
 
 // Various timeouts for different WINC1500 operations
-#define WINC1500_CONNECT_TIMEOUT 10000    /* milliseconds */
+#define WINC1500_CONNECT_TIMEOUT 15000    /* milliseconds */
 #define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
 #define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
 #define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */

@@ -227,15 +227,107 @@ int8_t WINC1500Interface::get_rssi() {
     return _ip_config.rssi;
 }
 
-int WINC1500Interface::winc_flash_read(char *str, char *addr, char *num) {
-
-    return spi_flash_read(str, atoi(addr), atoi (num));
+int WINC1500Interface::winc_flash_read(char *str, const char *addr, const char *num) {
+    uint32 read_addr = atoi(addr);
+    uint32 read_size = atoi(num);
+    char *p_str = str;
+    printf("SPI fl read - addr: 0x%x, size: 0x%x\r\n", read_addr, read_size);
+    uint8 read_buf[32];
+    if(read_size > 32) {
+        printf("Data size too big, res: %d\r\n", M2M_ERR_INVALID_ARG);
+        return M2M_ERR_INVALID_ARG;
+    }
+    if(spi_flash_read(read_buf, read_addr, read_size) != M2M_SUCCESS) {
+        printf("Data read error\r\n");
+        return M2M_SPI_FAIL;
+    }
+    printf("%d %d %d %d\r\n", read_buf[1], read_buf[3], read_buf[4], read_buf[5]);
+    for(int i=0;i<read_size;i++) {
+        sprintf(p_str,"%02x ", read_buf[i]);
+        p_str+=3;
+        if(((i+1) % 16) == 0) {
+            sprintf(p_str,"\r\n");
+            p_str+=2;
+        }
+    }
+    *p_str = 0;
+    return M2M_SUCCESS;
 }
 
-int WINC1500Interface::winc_write_chip(void) {
-    spi_flash_erase(0, m2m_aio_3a0_bin_len);
-    spi_flash_write(m2m_aio_3a0_bin, 0, m2m_aio_3a0_bin_len);
-    return NSAPI_ERROR_OK;
+int WINC1500Interface::winc_write_flash(const unsigned char *data, uint32 offset, unsigned int data_len, int chip_erase) {
+    int ret;
+    uint32 erase_size = data_len;
+    if(chip_erase) {
+        erase_size = (spi_flash_get_size() * 1024 *1024) / 8;
+    }
+    printf("Erasing chip, size: %d bytes at offset 0x%08x\r\n", erase_size, offset);
+    if (spi_flash_erase(offset, erase_size) != M2M_SUCCESS) {
+        printf("Chip erase failed!!\r\n");
+        return M2M_ERR_FAIL;
+    }
+    printf("Start write flash\r\n");
+    ret = spi_flash_write((uint8 *)data, offset, data_len);
+    if (ret != M2M_SUCCESS)
+        printf("Flash write failed! Res: %d\r\n", ret);
+    else
+        printf("Flash write completed!\r\n");
+    return ret;
+}
+
+int WINC1500Interface::winc_write_chip(const unsigned char *data, unsigned int data_len) {
+    return winc_write_flash(data, 0, data_len, 1);
+}
+
+int WINC1500Interface::winc_write_ota(const unsigned char *data, unsigned int data_len) {
+    return winc_write_flash(data + 40, M2M_OTA_IMAGE2_OFFSET, data_len - 40, 0);
+}
+
+int WINC1500Interface::winc_download_mode(void){
+    uint32 flashTotalSize;
+    int ret = m2m_wifi_download_mode();
+    if(M2M_SUCCESS != ret)
+    {
+        printf("Unable to enter download mode\r\n");
+    }
+    else
+    {
+        flashTotalSize = (spi_flash_get_size() * 1024 *1024) / 8;
+        printf("Download mode is ready, flash size: %d bytes\r\n", flashTotalSize);
+    }
+    return ret;
+}
+
+int WINC1500Interface::winc_get_version(char *str, int len){
+    tstrM2mRev firm_info;
+    tstrM2mRev ota_firm_info;
+    nm_get_firmware_info(&firm_info);
+    nm_get_ota_firmware_info(&ota_firm_info);
+    snprintf(str, len, "Main firm: %d.%d.%d, drv: %d.%d.%d, chip: 0x%x, Date: %s\r\n"
+            "OTA firm: %d.%d.%d, drv: %d.%d.%d, chip: 0x%x, Date: %s\r\n",
+            firm_info.u8FirmwareMajor, firm_info.u8FirmwareMinor, firm_info.u8FirmwarePatch,
+            firm_info.u8DriverMajor, firm_info.u8DriverMinor, firm_info.u8DriverPatch, firm_info.u32Chipid, firm_info.BuildDate,
+            ota_firm_info.u8FirmwareMajor, ota_firm_info.u8FirmwareMinor, ota_firm_info.u8FirmwarePatch,
+            ota_firm_info.u8DriverMajor, ota_firm_info.u8DriverMinor, ota_firm_info.u8DriverPatch, ota_firm_info.u32Chipid, ota_firm_info.BuildDate);
+    return M2M_SUCCESS;
+}
+
+int WINC1500Interface::winc_chip_erase(void){
+    uint32 flashTotalSize;
+    flashTotalSize = (spi_flash_get_size() * 1024 *1024) / 8;
+    printf("Erasing chip, size: %d bytes\r\n", flashTotalSize);
+    if (spi_flash_erase(0, flashTotalSize) != M2M_SUCCESS) {
+        printf("Chip erase failed!!\r\n", flashTotalSize);
+        return M2M_ERR_FAIL;
+    }
+    printf("Chip erase completed!\r\n");
+    return M2M_SUCCESS;
+}
+
+int WINC1500Interface::winc_switch_part(void) {
+    int ret;
+    ret = m2m_ota_switch_firmware();
+    printf("Switching complete, result: %d bytes\r\n", ret);
+    return ret;
 }
 
 int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {

@@ -521,7 +521,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             memcpy(&_found_ap_list[_scan_request_index], &pstrScanResult, sizeof(tstrM2mWifiscanResult));
 
             /* display found AP. */
-            printf("[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
+            printf_all("[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
 
             strncpy(_found_ap_list[_scan_request_index].ssid, (const char*)pstrScanResult->au8SSID, 33);
             _found_ap_list[_scan_request_index].rssi = pstrScanResult->s8rssi;
@@ -554,9 +554,9 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
                 _ip_config.u32IP = 0;
                 _ip_config.u32Gateway = 0;
                 _ip_config.u32SubnetMask = 0;
-                printf("M2M_WIFI_RESP_CON_STATE_CHANGED. DISCONENCTED\r\n");
+                printf_all("M2M_WIFI_RESP_CON_STATE_CHANGED. DISCONNECTED\r\n");
 
-                printf("Wi-Fi disconnected\r\n");
+                printf_all("Wi-Fi disconnected\r\n");
 
                 _disconnected.release();
             }
@@ -574,8 +574,8 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             _ip_config.u32IP = pIPAddress->u32StaticIP;
             _ip_config.u32Gateway = pIPAddress->u32Gateway;
             _ip_config.u32SubnetMask = pIPAddress->u32SubnetMask;
-            printf("Wi-Fi connected\r\n");
-            printf("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
+            printf_all("Wi-Fi connected\r\n");
+            printf_all("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
 
             // release the connection semaphore
             _connected.release();

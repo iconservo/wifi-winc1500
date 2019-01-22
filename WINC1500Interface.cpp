@@ -1,6 +1,12 @@
 #include "WINC1500Interface.h"
 #include "TCPSocket.h"
 #include "ScopedLock.h"
+#include "sockets.h"
+#include "ip4_addr.h"
+
+#define inet_pton(af,src,dst)   ip4addr_aton((src),(ip4_addr_t*)(dst))
+
+#define BYTE_SWAP(num) ((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000);
 
 uint8_t WINC1500Interface::_scan_request_index;
 /** Number of APs found. */
@@ -413,6 +419,51 @@ int winc1500_err_to_nsapi_err(int err) {
     }
 }
 
+/* Convert the character string in "ip" into an unsigned integer.
+
+   This assumes that an unsigned integer contains at least 32 bits. */
+
+uint32_t ip_to_int (const char * ip)
+{
+    /* The return value. */
+    unsigned v = 0;
+    /* The count of the number of bytes processed. */
+    int i;
+    /* A pointer to the next digit to process. */
+    const char * start;
+
+    start = ip;
+    for (i = 0; i < 4; i++) {
+        /* The digit being processed. */
+        char c;
+        /* The value of this byte. */
+        int n = 0;
+        while (1) {
+            c = * start;
+            start++;
+            if (c >= '0' && c <= '9') {
+                n *= 10;
+                n += c - '0';
+            }
+            /* We insist on stopping at "." if we are still parsing
+               the first, second, or third numbers. If we have reached
+               the end of the numbers, we will allow any character. */
+            else if ((i < 3 && c == '.') || i == 3) {
+                break;
+            }
+            else {
+                return 0;
+            }
+        }
+        if (n >= 256) {
+            return 0;
+        }
+        v *= 256;
+        v += n;
+    }
+    return (uint32_t)v;
+}
+
 int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     ScopedLock<Mutex> lock(_mutex);
 
@@ -424,11 +475,15 @@ int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
 
     _current_sock.sin_family = AF_INET;
     _current_sock.sin_port = _htons(addr.get_port());
-    _current_sock.sin_addr.s_addr = _resolved_DNS_addr.p32ip_addr;
+    
+    uint32_t got_addr = BYTE_SWAP(ip_to_int(addr.get_ip_address()));
+    winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", got_addr);
+    _current_sock.sin_addr.s_addr = got_addr;
+
 
     winc_debug(_winc_debug, "Socket id: %x\n", socket->id);
     winc_debug(_winc_debug, "Got address: %s\n", addr.get_ip_address());
-    winc_debug(_winc_debug, "Got port: %x\n", addr.get_port());
+    winc_debug(_winc_debug, "Got port: %u\n", addr.get_port());
 
     winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", (unsigned int)_current_sock.sin_addr.s_addr);
     winc_debug(_winc_debug, "_current_sock_addr.sin_port: %x\n", _current_sock.sin_port);

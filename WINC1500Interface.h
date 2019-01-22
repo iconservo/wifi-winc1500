@@ -11,6 +11,9 @@ extern "C" {
 #include "m2m_hif.h"
 #include "m2m_types.h"
 #include "winc1500_socket.h"
+#include "spi_flash.h"
+#include "spi_flash_map.h"
+#include "m2m_ota.h"
 }
 
 #ifndef MAX_NUM_APs
@@ -85,7 +88,13 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual int scan(WiFiAccessPoint* res, unsigned count);
     const char* get_otp_mac_address();
     int set_mac_address(const uint8* mac_address);
-
+    int winc_flash_read(char *str, const char *addr, const char *num);
+    int winc_write_chip(const unsigned char *data, unsigned int data_len);
+    int winc_download_mode(void);
+    int winc_get_version(char *str, int len);
+    int winc_chip_erase(void);
+    int winc_write_ota(const unsigned char *data, unsigned int data_len);
+    int winc_switch_part(void);
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
     virtual int socket_close(void* handle);
@@ -161,6 +170,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
 
     bool isInitialized();
+    int winc_write_flash(const unsigned char *data, uint32 offset, unsigned int data_len, int chip_erase);
 };
 
 #endif

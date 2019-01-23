@@ -350,7 +350,7 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
         winc_debug(_winc_debug, "WINC1500Interface: socket_opened, id=%d\n", socket->id);
 
         socket->addr = 0;
-        socket->read_data_size = 0;
+        socket->received_data_size = 0;
         socket->proto = proto;
         socket->connected = false;
         *handle = socket;
@@ -539,20 +539,11 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
     return size;
 }
 
-int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
-    ScopedLock<Mutex> lock(_mutex);
+int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_buff_ptr, unsigned size) {
+    
+    //init recv fucntion one more time 
+    sint16 err = WINC_SOCKET(recv)(socket->id, (void*)socket->input_buff_pos, (uint16_t)size, 100);
 
-    struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
-
-    if (!socket->connected) {
-        _mutex.unlock();
-        return NSAPI_ERROR_CONNECTION_LOST;
-    }
-
-    winc_debug(_winc_debug, "socket_id = %i", socket->id);
-    winc_debug(_winc_debug, "amount of data to receive = %i", size);
-
-    sint16 err = WINC_SOCKET(recv)(socket->id, (void*)data, (uint16)size, 100);
     if (err != SOCK_ERR_NO_ERROR) {
         winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
         return NSAPI_ERROR_DEVICE_ERROR;
@@ -566,10 +557,131 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
         }
 
         winc_debug(_winc_debug, "Recv semaphore released!");
-        winc_debug(_winc_debug, "Recv data size: %i", sizeof(data));
+        // winc_debug(_winc_debug, "Recv data size: %i", sizeof(data));
 
-        return _received_data_size; //to do: fix recv function
+        return socket->received_data_size; //to do: fix recv function
     }
+}
+
+int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
+    ScopedLock<Mutex> lock(_mutex);
+
+    struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
+
+    if (!socket->connected) {
+        _mutex.unlock();
+        return NSAPI_ERROR_CONNECTION_LOST;
+    }
+
+    int ptr_diff = (int)(socket->input_buff_pos - socket->read_out_pos);
+
+    //if there is not enough data
+    if (ptr_diff < size) {
+
+        if(ptr_diff == 0) {
+            //no data left->flush input buffer 
+            memset(socket->input_buff, 0, sizeof(socket->input_buff));
+            //reset ptr pos
+            socket->input_buff_pos = socket->input_buff;
+            socket->read_out_pos = socket->input_buff;
+
+            socket->received_data_size = 0;
+
+            request_socket_recv(socket, socket->input_buff_pos, size);
+        }
+        else if (ptr_diff > 0) {
+            
+            request_socket_recv(socket, socket->input_buff_pos, size);
+
+        }
+        else {
+            winc_debug(_winc_debug, "pointer is lost: %i", ptr_diff);
+            return NSAPI_ERROR_DEVICE_ERROR;
+        }   
+    }
+
+    //continue to dump data
+    memmove(data, socket->read_out_pos, size);
+    //change pointer pos
+    socket->read_out_pos += size;        
+            
+    return size;
+    
+    // else
+
+    
+
+    // while(((uint8_t)input_buff_pos - read_out_pos) < size && ptr_diff <= 0)
+    // {
+        
+
+    //     //init recv fucntion one more time 
+    //     sint16 err = WINC_SOCKET(recv)(socket->id, (void*)input_buff_pos, (uint16_t)size, 100);
+
+    //     if (err != SOCK_ERR_NO_ERROR) {
+    //         winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
+    //         return NSAPI_ERROR_DEVICE_ERROR;
+    //     } else {
+    //         winc_debug(_winc_debug, "Successfully requested recv");
+
+    //         uint32_t tok = _socket_data_recv.wait(WINC1500_RECV_TIMEOUT);
+    //         if (!tok) {
+    //             winc_debug(_winc_debug, "Socket recv timeout!");
+    //             return NSAPI_ERROR_TIMEOUT;
+    //         }
+
+    //         winc_debug(_winc_debug, "Recv semaphore released!");
+    //         winc_debug(_winc_debug, "Recv data size: %i", sizeof(data));
+
+    //         return _received_data_size; //to do: fix recv function
+    //     }
+    // }
+
+    // uint8_t ptr_diff = (uint8_t)input_buff_pos - read_out_pos;
+    
+    // if(ptr_diff > size) {
+    //     //continue to dump data
+    //     memcpy(data, socket->input_buff_pos, size);
+    //     //change pointer pos
+    //     read_out_pos = (uint8_t*)(read_out_pos + size);        
+        
+    //     return size;
+    // }
+    // else {
+    //     //no data left->flush input buffer 
+    //     memset(socket->input_buff, 0, sizeof(socket->input_buff));
+    //     //reset ptr pos
+    //     socket->input_buff_pos = &input_buff;
+    //     socket->read_out_pos = &input_buff;
+
+    //     socket->received_data_size = 0;
+
+    //     //init recv fucntion one more time 
+    //     sint16 err = WINC_SOCKET(recv)(socket->id, (void*)input_buff_pos, (uint16_t)size, 100);
+
+    //     if (err != SOCK_ERR_NO_ERROR) {
+    //         winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
+    //         return NSAPI_ERROR_DEVICE_ERROR;
+    //     } else {
+    //         winc_debug(_winc_debug, "Successfully requested recv");
+
+    //         uint32_t tok = _socket_data_recv.wait(WINC1500_RECV_TIMEOUT);
+    //         if (!tok) {
+    //             winc_debug(_winc_debug, "Socket recv timeout!");
+    //             return NSAPI_ERROR_TIMEOUT;
+    //         }
+
+    //         winc_debug(_winc_debug, "Recv semaphore released!");
+    //         winc_debug(_winc_debug, "Recv data size: %i", sizeof(data));
+
+    //         return _received_data_size; //to do: fix recv function
+    //     }
+    // }
+
+    // winc_debug(_winc_debug, "socket_id = %i", socket->id);
+    // winc_debug(_winc_debug, "amount of data to receive = %i", size);
+
+    
 }
 
 int WINC1500Interface::socket_sendto(void* handle, const SocketAddress& addr, const void* data, unsigned size) {
@@ -640,7 +752,6 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
                 _ip_config.u32Gateway = 0;
                 _ip_config.u32SubnetMask = 0;
                 printf("M2M_WIFI_RESP_CON_STATE_CHANGED. DISCONENCTED\r\n");
-
                 printf("Wi-Fi disconnected\r\n");
 
                 _disconnected.release();
@@ -707,12 +818,20 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
             pstrRecvMsg = (tstrSocketRecvMsg*)pvMsg;
 
-            if ((pstrRecvMsg->pu8Buffer != NULL) && (pstrRecvMsg->s16BufferSize > 0)) {
+             if ((pstrRecvMsg->pu8Buffer != NULL) && (pstrRecvMsg->s16BufferSize > 0)) {
+                //find the appropriate socket
+                struct WINC1500_socket* socket = &_socker_arr[sock];
+
+                //copy received data to socket buffer
+                memcpy(socket->input_buff_pos, pstrRecvMsg->pu8Buffer, pstrRecvMsg->s16BufferSize);
+                //shift pointer
+                socket->input_buff_pos += pstrRecvMsg->s16BufferSize;
+                socket->received_data_size += pstrRecvMsg->s16BufferSize;
+
                 winc_debug(_winc_debug, "Received some data!");
+                winc_debug(_winc_debug, "Received data: (%.*s)", pstrRecvMsg->s16BufferSize, (char *)pstrRecvMsg->pu8Buffer);
                 winc_debug(_winc_debug, "Data size: %i", pstrRecvMsg->s16BufferSize);
                 winc_debug(_winc_debug, "remaining data size: %i", pstrRecvMsg->u16RemainingSize);
-
-                _received_data_size = pstrRecvMsg->s16BufferSize;
 
                 if (pstrRecvMsg->u16RemainingSize != 0) {
                     winc_debug(_winc_debug, "Some data left [%i], waiting...", pstrRecvMsg->u16RemainingSize);

@@ -48,7 +48,11 @@ struct WINC1500_socket {
     nsapi_protocol_t proto;
     bool connected;
     SocketAddress addr;
-    uint32_t read_data_size;
+    uint8_t input_buff[WINC1500_SOCK_RX_SIZE*2];
+    uint8_t* input_buff_pos = input_buff;
+    uint8_t* read_out_pos = input_buff;
+
+    uint32_t received_data_size;
     /**
      * TCP port number of HTTP.
      */
@@ -128,7 +132,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     bool _ids[MAX_SOCKET];
     WINC1500_socket* _socket_obj[MAX_SOCKET];  // store addresses of socket handles
-    struct WINC1500_socket _socker_arr[MAX_SOCKET] = {0};
+    struct WINC1500_socket _socker_arr[MAX_SOCKET];
     struct connection_info _ip_config;
 
     bool _winc_debug;
@@ -173,6 +177,8 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
+
+    int request_socket_recv(WINC1500_socket* socket, void* input_buff_ptr, unsigned size);
 
     bool isInitialized();
     int winc_write_flash(const unsigned char *data, uint32 offset, unsigned int data_len, int chip_erase);

@@ -22,24 +22,88 @@ WINC1500Interface::WINC1500Interface() {
 
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
 
-    /* Initialize the BSP. */
+    if (enableInterface()) {
+        winc1500_automatic_sleep(1);
+    }
+}
 
+int WINC1500Interface::enableInterface() {
+	
     is_initialized = true;
 
-    nm_bsp_init();
+    /* Initialize the BSP. */
+	nm_bsp_init();
 
-    /* Initialize Wi-Fi driver with data and status callbacks. */
-    param.pfAppWifiCb = winc1500_wifi_cb;
-    ret = m2m_wifi_init(&param);
-    if (M2M_SUCCESS != ret) {
-        is_initialized = false;
+	/* Initialize Wi-Fi driver with data and status callbacks. */
+	tstrWifiInitParam param;
+	param.pfAppWifiCb = winc1500_wifi_cb;
+	int8_t ret = m2m_wifi_init(&param);
+	if (M2M_SUCCESS != ret) {
+		is_initialized = false;
         switch (ret) {
             case M2M_ERR_FIRMWARE:
                 winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
             case M2M_ERR_FAIL:
                 winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
         }
-    }
+        return 0;
+	}
+
+	winc_debug(_winc_debug, "Starting winc..");
+
+	int state = _wifi_thread.get_state();
+	winc_debug(_winc_debug, "wifi_thread state: %i", state);
+
+//	if(_wifi_thread.get_state()== 1) {
+	_wifi_thread.start(callback(wifi_thread_cb));
+	wifi_thread_enable_.unlock();
+//	}
+//	else {
+//		wifi_thread_enable_.unlock();
+//	}
+
+//	state = _wifi_thread.get_state();
+//	winc_debug(_winc_debug, "wifi_thread state: %i", state);
+
+	return 1;
+}
+
+int WINC1500Interface::disableInterface() {
+
+	winc_debug(_winc_debug, "\r\n");
+	winc_debug(_winc_debug, "uninitializing winc1500 interface...");
+
+	m2m_wifi_deinit(NULL);
+	nm_bsp_deinit();
+
+	winc_debug(_winc_debug, "Uninitialization done!");
+	wifi_thread_enable_.lock();
+
+//	_wifi_thread.terminate();
+
+//	_wifi_thread.join();
+	int state = _wifi_thread.get_state();
+	winc_debug(_winc_debug, "wifi_thread state: %i", state);
+
+
+	return 0;
+}
+
+int WINC1500Interface::winc1500_reset(bool reset) {
+	reset_pin.write((reset) ? 1 : 0);
+}
+
+int WINC1500Interface::winc1500_enable(bool enable) {
+	en_pin.write((enable) ? 1 : 0);
+}
+
+int WINC1500Interface::winc1500_wake(bool wake) {
+	wake_pin.write((wake) ? 1 : 0);
+}
+
+void WINC1500Interface::disable_pullups(void)
+{
+	uint32 pinmask;
 
     winc_debug(_winc_debug, "Starting winc..");
     _wifi_thread.start(callback(wifi_thread_cb));

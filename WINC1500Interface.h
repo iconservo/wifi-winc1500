@@ -95,6 +95,16 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc_chip_erase(void);
     int winc_write_ota(const unsigned char *data, unsigned int data_len);
     int winc_switch_part(void);
+
+
+    int winc1500_automatic_sleep(int lstn_int);
+    int enableInterface();
+    int disableInterface();
+    int winc1500_reset(bool reset);
+    int winc1500_enable(bool enable);
+    int winc1500_wake(bool wake);
+    void disable_pullups(void);
+
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
     virtual int socket_close(void* handle);
@@ -169,13 +179,6 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
 
-    int enableInterface();
-    int disableInterface();
-    int winc1500_reset(bool reset);
-    int winc1500_enable(bool enable);
-    int winc1500_wake(bool wake);
-    void disable_pullups(void);
-    
     bool isInitialized();
     int winc_write_flash(const unsigned char *data, uint32 offset, unsigned int data_len, int chip_erase);
 };

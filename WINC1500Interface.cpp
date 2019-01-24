@@ -68,6 +68,28 @@ int WINC1500Interface::enableInterface() {
 	return 1;
 }
 
+int WINC1500Interface::winc1500_automatic_sleep(int lstn_int=1) {
+
+    disable_pullups();
+    tstrM2mLsnInt strM2mLsnInt;
+
+    uint8_t en_broadcast_data = 1;
+
+    if (lstn_int > 1) {
+        en_broadcast_data = 0;
+        strM2mLsnInt.u16LsnInt = lstn_int;
+    }
+    else {
+        strM2mLsnInt.u16LsnInt = M2M_LISTEN_INTERVAL;
+    }
+
+    m2m_wifi_set_sleep_mode(M2M_PS_DEEP_AUTOMATIC, en_broadcast_data);
+    m2m_wifi_set_lsn_int(&strM2mLsnInt);
+
+    return 0;
+}
+
+
 int WINC1500Interface::disableInterface() {
 
 	winc_debug(_winc_debug, "\r\n");

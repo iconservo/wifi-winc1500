@@ -130,6 +130,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     Thread _wifi_thread;
     Semaphore _got_scan_result, _connected, _disconnected, _rssi_request;
+    Mutex wifi_thread_enable_;
 
     // socket related private variables
     Thread _socket_thread;

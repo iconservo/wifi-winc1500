@@ -14,6 +14,10 @@ const char* ip_to_str(const uint32* ip_addr, char* buf, int len) {
     return buf;
 }
 
+static DigitalOut reset_pin(MBED_CONF_WINC1500_WIFI_RESET);
+static DigitalOut en_pin(MBED_CONF_WINC1500_WIFI_CHIP_ENABLE);
+static DigitalOut wake_pin(MBED_CONF_WINC1500_WIFI_WAKEUP);
+
 WINC1500Interface::WINC1500Interface() {
     // init sequence
     tstrWifiInitParam param;

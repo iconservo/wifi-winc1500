@@ -27,9 +27,11 @@ WINC1500Interface::WINC1500Interface() {
     // init sequence
     tstrWifiInitParam param;
     int8_t ret;
+        
+    _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
 
     if (enableInterface()) {
-        winc1500_automatic_sleep(1);
+        //winc1500_automatic_sleep(1);
     }
 }
 

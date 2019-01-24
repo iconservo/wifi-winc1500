@@ -77,11 +77,11 @@ enum { true = 1, false =0 };
 #define M2M_LOG_DBG									4
 
 
-#define CONF_WINC_PRINTF(...)                printf_all( __VA_ARGS__ )
+#define CONF_WINC_PRINTF(...)                printf( __VA_ARGS__ )
 
 
 #undef M2M_LOG_LEVEL
-#define M2M_LOG_LEVEL								M2M_LOG_ERROR
+#define M2M_LOG_LEVEL								M2M_LOG_DBG
 
 
 #define M2M_ERR(...)

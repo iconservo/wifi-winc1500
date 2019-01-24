@@ -5,7 +5,7 @@
 
 #include "mbed.h"
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
-#include "wifi-common.h"
+//#include "wifi-common.h"
 
 extern "C" {
 #include "m2m_wifi.h"
@@ -99,21 +99,12 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc_write_ota(const unsigned char *data, unsigned int data_len);
     int winc_switch_part(void);
 
-
-    int winc1500_automatic_sleep(int lstn_int);
     int enableInterface();
     int disableInterface();
     int winc1500_reset(bool reset);
     int winc1500_enable(bool enable);
     int winc1500_wake(bool wake);
     void disable_pullups(void);
-
-    int enableInterface();
-    int disableInterface();
-
-    void winc1500_reset(bool reset);
-    void winc1500_enable(bool enable);
-    void winc1500_wake(bool wake);
 
     int winc1500_automatic_sleep(int lstn_int);
     int winc1500_manual_sleep(uint32_t sleep_time_ms);

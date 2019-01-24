@@ -675,8 +675,8 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
             //no data left->flush input buffer 
             memset(socket->input_buff, 0, sizeof(socket->input_buff));
             //reset ptr pos
-            socket->input_buff_pos = socket->input_buff;
-            socket->read_out_pos = socket->input_buff;
+            socket->input_buff_pos = &socket->input_buff[0];
+            socket->read_out_pos = &socket->input_buff[0];
 
             socket->received_data_size = 0;
 
@@ -684,8 +684,16 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
         }
         else if (ptr_diff > 0) {
             
-            request_socket_recv(socket, socket->input_buff_pos, size);
+            int bytes_to_delete = (int)(socket->read_out_pos - &socket->input_buff[0]);
+            int bytes_to_copy = (int)(&socket->input_buff[sizeof(socket->input_buff)-1]-socket->read_out_pos);
 
+            memset(socket->input_buff, 0, bytes_to_delete);
+            memmove(socket->input_buff, socket->read_out_pos, bytes_to_copy);
+
+            socket->read_out_pos -= bytes_to_delete;
+            socket->input_buff_pos -= bytes_to_delete;
+
+            request_socket_recv(socket, socket->input_buff_pos, size);
         }
         else {
             winc_debug(_winc_debug, "pointer is lost: %i", ptr_diff);

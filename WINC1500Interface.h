@@ -169,6 +169,13 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
 
+    int enableInterface();
+    int disableInterface();
+    int winc1500_reset(bool reset);
+    int winc1500_enable(bool enable);
+    int winc1500_wake(bool wake);
+    void disable_pullups(void);
+    
     bool isInitialized();
     int winc_write_flash(const unsigned char *data, uint32 offset, unsigned int data_len, int chip_erase);
 };

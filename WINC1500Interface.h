@@ -5,15 +5,18 @@
 
 #include "mbed.h"
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
+#include "wifi-common.h"
 
 extern "C" {
 #include "m2m_wifi.h"
 #include "m2m_hif.h"
 #include "m2m_types.h"
+#include "m2m_periph.h"
 #include "winc1500_socket.h"
 #include "spi_flash.h"
 #include "spi_flash_map.h"
 #include "m2m_ota.h"
+
 }
 
 #ifndef MAX_NUM_APs
@@ -105,6 +108,16 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc1500_wake(bool wake);
     void disable_pullups(void);
 
+    int enableInterface();
+    int disableInterface();
+
+    void winc1500_reset(bool reset);
+    void winc1500_enable(bool enable);
+    void winc1500_wake(bool wake);
+
+    int winc1500_automatic_sleep(int lstn_int);
+    int winc1500_manual_sleep(uint32_t sleep_time_ms);
+
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
     virtual int socket_close(void* handle);
@@ -172,7 +185,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     static void winc1500_wifi_cb(uint8_t u8MsgType, void* pvMsg);
     static void wifi_thread_cb();
 
-    static int winc1500_err_to_mn_err(int err);
+    static int winc1500_err_to_nsapi_err(int err);
 
     void socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg);
     static void winc1500_socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg);

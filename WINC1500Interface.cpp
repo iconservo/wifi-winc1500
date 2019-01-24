@@ -1,6 +1,8 @@
 #include "WINC1500Interface.h"
 #include "TCPSocket.h"
 #include "ScopedLock.h"
+//#include "m2m_periph.h"
+
 
 uint8_t WINC1500Interface::_scan_request_index;
 /** Number of APs found. */
@@ -18,13 +20,13 @@ static DigitalOut reset_pin(MBED_CONF_WINC1500_WIFI_RESET);
 static DigitalOut en_pin(MBED_CONF_WINC1500_WIFI_CHIP_ENABLE);
 static DigitalOut wake_pin(MBED_CONF_WINC1500_WIFI_WAKEUP);
 
+extern EventFlags irq_event;
+
+
 WINC1500Interface::WINC1500Interface() {
     // init sequence
     tstrWifiInitParam param;
     int8_t ret;
-    
-
-    _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
 
     if (enableInterface()) {
         winc1500_automatic_sleep(1);
@@ -60,7 +62,7 @@ int WINC1500Interface::enableInterface() {
 
 //	if(_wifi_thread.get_state()== 1) {
 	_wifi_thread.start(callback(wifi_thread_cb));
-	wifi_thread_enable_.unlock();
+	// wifi_thread_enable_.unlock();
 //	}
 //	else {
 //		wifi_thread_enable_.unlock();
@@ -72,26 +74,35 @@ int WINC1500Interface::enableInterface() {
 	return 1;
 }
 
-int WINC1500Interface::winc1500_automatic_sleep(int lstn_int=1) {
+// int WINC1500Interface::enableInterface() {
+//     /* Initialize the BSP. */
+//     is_initialized = true;
+//     nm_bsp_init();
 
-    disable_pullups();
-    tstrM2mLsnInt strM2mLsnInt;
+//     /* Initialize Wi-Fi driver with data and status callbacks. */
+//     tstrWifiInitParam param;
+//     param.pfAppWifiCb = winc1500_wifi_cb;
+//     sint8 ret = m2m_wifi_init(&param);
+//     if (M2M_SUCCESS != ret) {
+//         is_initialized = false;
+//         switch (ret) {
+//             case M2M_ERR_FIRMWARE:
+//                 winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
+//             case M2M_ERR_FAIL:
+//                 winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
+//         }
+//         return ret;
+// >>>>>>> remotes/origin/isel.event-driven-irq
+//     }
+//     else {
+//         strM2mLsnInt.u16LsnInt = M2M_LISTEN_INTERVAL;
+//     }
 
-    uint8_t en_broadcast_data = 1;
+//     m2m_wifi_set_sleep_mode(M2M_PS_DEEP_AUTOMATIC, en_broadcast_data);
+//     m2m_wifi_set_lsn_int(&strM2mLsnInt);
 
-    if (lstn_int > 1) {
-        en_broadcast_data = 0;
-        strM2mLsnInt.u16LsnInt = lstn_int;
-    }
-    else {
-        strM2mLsnInt.u16LsnInt = M2M_LISTEN_INTERVAL;
-    }
-
-    m2m_wifi_set_sleep_mode(M2M_PS_DEEP_AUTOMATIC, en_broadcast_data);
-    m2m_wifi_set_lsn_int(&strM2mLsnInt);
-
-    return 0;
-}
+//     return 0;
+// }
 
 
 int WINC1500Interface::disableInterface() {
@@ -127,12 +138,41 @@ int WINC1500Interface::winc1500_wake(bool wake) {
 	wake_pin.write((wake) ? 1 : 0);
 }
 
-void WINC1500Interface::disable_pullups(void)
-{
-	uint32 pinmask;
+void WINC1500Interface::disable_pullups(void) {
+    uint32 pinmask;
 
-    winc_debug(_winc_debug, "Starting winc..");
-    _wifi_thread.start(callback(wifi_thread_cb));
+    pinmask = (M2M_PERIPH_PULLUP_DIS_HOST_WAKEUP | M2M_PERIPH_PULLUP_DIS_GPIO_3 | M2M_PERIPH_PULLUP_DIS_GPIO_5 |
+               M2M_PERIPH_PULLUP_DIS_SD_DAT0_SPI_TXD | M2M_PERIPH_PULLUP_DIS_GPIO_6);
+
+    m2m_periph_pullup_ctrl(pinmask, 0);
+}
+
+int WINC1500Interface::winc1500_automatic_sleep(int lstn_int = 1) {
+    disable_pullups();
+    tstrM2mLsnInt strM2mLsnInt;
+
+    uint8_t en_broadcast_data = 1;
+
+    if (lstn_int > 1) {
+        en_broadcast_data = 0;
+        strM2mLsnInt.u16LsnInt = lstn_int;
+    } else {
+        strM2mLsnInt.u16LsnInt = M2M_LISTEN_INTERVAL;
+    }
+
+    m2m_wifi_set_sleep_mode(M2M_PS_DEEP_AUTOMATIC, en_broadcast_data);
+    m2m_wifi_set_lsn_int(&strM2mLsnInt);
+
+    return 0;
+}
+
+int WINC1500Interface::winc1500_manual_sleep(uint32_t sleep_time_ms) {
+    disable_pullups();
+
+    m2m_wifi_set_sleep_mode(M2M_PS_MANUAL, 0);
+    m2m_wifi_request_sleep(sleep_time_ms);
+
+    return 0;
 }
 
 WINC1500Interface& WINC1500Interface::getInstance() {
@@ -220,6 +260,10 @@ nsapi_error_t WINC1500Interface::gethostbyname(const char* name, SocketAddress* 
 }
 
 int WINC1500Interface::set_credentials(const char* ssid, const char* pass, nsapi_security_t security) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     ScopedLock<Mutex> lock(_mutex);
 
     memset(_ap_ssid, 0, sizeof(_ap_ssid));
@@ -427,7 +471,12 @@ int WINC1500Interface::scan(WiFiAccessPoint* res, unsigned count) {
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 
-    m2m_wifi_request_scan(M2M_WIFI_CH_ALL);
+    sint8 ret = m2m_wifi_request_scan(M2M_WIFI_CH_ALL);
+
+    if (ret != M2M_SUCCESS) {
+        winc_debug(_winc_debug, "Scan request returned error code: %i", ret);
+        return winc1500_err_to_nsapi_err(ret);
+    }
 
     uint32_t tok = _got_scan_result.wait(WINC1500_SCAN_RESULT_TIMEOUT);
     if (!tok) {
@@ -530,6 +579,10 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
 }
 
 int WINC1500Interface::socket_close(void* handle) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     ScopedLock<Mutex> lock(_mutex);
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
@@ -555,7 +608,7 @@ int WINC1500Interface::socket_listen(void* handle, int backlog) {
     return NSAPI_ERROR_UNSUPPORTED;
 }
 
-int winc1500_err_to_nsapi_err(int err) {
+int WINC1500Interface::winc1500_err_to_nsapi_err(int err) {
     switch (err) {
         case SOCK_ERR_NO_ERROR:
             return NSAPI_ERROR_OK;
@@ -586,6 +639,10 @@ int winc1500_err_to_nsapi_err(int err) {
 }
 
 int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     ScopedLock<Mutex> lock(_mutex);
 
     winc_debug(_winc_debug, "Socket_connect");
@@ -620,6 +677,10 @@ int WINC1500Interface::socket_accept(void* server, void** socket, SocketAddress*
 }
 
 int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
+
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
 
     winc_debug(_winc_debug, "socket_send entry point\n");
@@ -649,6 +710,9 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
 }
 
 int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
+    if (!isInitialized()) {
+        return NSAPI_ERROR_DEVICE_ERROR;
+    }
     ScopedLock<Mutex> lock(_mutex);
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
@@ -853,8 +917,14 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 void WINC1500Interface::wifi_thread_cb() {
     while (1) {
         /* Handle pending events from network controller. */
-        while (m2m_wifi_handle_events(NULL) != M2M_SUCCESS) {
-            wait_ms(1);
+        getInstance().wifi_thread_enable_.lock();
+        getInstance().wifi_thread_enable_.unlock();
+
+        irq_event.wait_all(0x1);
+        wait_ms(1);
+
+        if(m2m_wifi_handle_events(NULL) != M2M_SUCCESS) {
+
         }
     }
 }

@@ -35,6 +35,9 @@ static DigitalOut wake_pin(MBED_CONF_WINC1500_WIFI_WAKEUP);
 
 
 static tpfNmBspIsr gpfIsr;
+static tpfNmBspIsr temp_isr;
+EventFlags irq_event;
+
 
 static void chip_isr(void)
 {
@@ -103,13 +106,22 @@ void nm_bsp_sleep(uint32 u32TimeMsec)
 }
 
 
+static void isr_handle() {
+
+	irq_event.set(0x1);
+	if(temp_isr) {
+		temp_isr();
+	}
+}
+
 /*
  * Register interrupt handler
  */
 void
 nm_bsp_register_isr(tpfNmBspIsr isr)
 {
-    winc_irq_pin.fall(isr);
+	temp_isr = isr;
+    winc_irq_pin.fall(isr_handle);
 }
 
 /*

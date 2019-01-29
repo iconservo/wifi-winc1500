@@ -5,6 +5,7 @@
 
 #include "mbed.h"
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
+#include "sv-nvstore.h"
 
 extern "C" {
 #include "m2m_wifi.h"
@@ -66,6 +67,7 @@ struct connection_info {
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
    public:
     virtual int connect();
+    static WINC1500Interface& getInstance(SVNVStore* nvstore);
     static WINC1500Interface& getInstance();
     virtual int connect(const char* ssid,
                         const char* pass,
@@ -143,8 +145,9 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     struct sockaddr_in _current_sock_addr;
 
     uint16_t _received_data_size;
+    static SVNVStore* _nvstore;
 
-    WINC1500Interface();
+    WINC1500Interface(SVNVStore* nvstore);
     WINC1500Interface(WINC1500Interface const&);  // Don't Implement.
     void operator=(WINC1500Interface const&);     // Don't implement
 

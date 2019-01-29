@@ -35,8 +35,8 @@ extern "C" {
 #define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
 #define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
 #define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
-#define WINC1500_SEND_TIMEOUT 2000        /* milliseconds */
-#define WINC1500_RECV_TIMEOUT 3000        /* milliseconds */
+#define WINC1500_SEND_TIMEOUT 5000        /* milliseconds */
+#define WINC1500_RECV_TIMEOUT 5000        /* milliseconds */
 
 #define WINC1500_MAX_MAJOR_VERSION 30
 

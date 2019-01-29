@@ -15,6 +15,9 @@ extern "C" {
 #include "spi_flash.h"
 #include "spi_flash_map.h"
 #include "m2m_ota.h"
+#include "driver/source/nmasic.h"
+#include "driver/source/nmspi.h"
+#include "driver/source/nmbus.h"
 }
 
 #ifndef MAX_NUM_APs
@@ -34,6 +37,8 @@ extern "C" {
 #define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
 #define WINC1500_SEND_TIMEOUT 2000        /* milliseconds */
 #define WINC1500_RECV_TIMEOUT 3000        /* milliseconds */
+
+#define WINC1500_MAX_MAJOR_VERSION 30
 
 #define winc_debug(cond, ...)                                        \
     if (cond) {                                                      \

@@ -13,6 +13,7 @@ uint8_t WINC1500Interface::_scan_request_index;
 uint8_t WINC1500Interface::_num_found_ap;
 
 nsapi_wifi_ap_t WINC1500Interface::_found_ap_list[MAX_NUM_APs];
+SVNVStore* WINC1500Interface::_nvstore;
 
 const char* ip_to_str(const uint32* ip_addr, char* buf, int len) {
     uint8* p8ip = (uint8*)ip_addr;
@@ -20,13 +21,14 @@ const char* ip_to_str(const uint32* ip_addr, char* buf, int len) {
     return buf;
 }
 
-WINC1500Interface::WINC1500Interface() {
+WINC1500Interface::WINC1500Interface(SVNVStore* nvstore) {
     // init sequence
     tstrWifiInitParam param;
     int8_t ret;
+    uint8 mac_buffer[6];
 
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
-
+    _nvstore = nvstore;
     /* Initialize the BSP. */
 
     is_initialized = true;
@@ -45,7 +47,12 @@ WINC1500Interface::WINC1500Interface() {
                 winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
         }
     }
-
+    if(_nvstore) {
+        _nvstore->nv_store_get_mac(mac_buffer, 6);
+        winc_debug(_winc_debug, "MAC address obtained: %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+                mac_buffer[0], mac_buffer[1], mac_buffer[2], mac_buffer[3], mac_buffer[4], mac_buffer[5]);
+        m2m_wifi_set_mac_address(mac_buffer);
+    }
     winc_debug(_winc_debug, "Starting winc..");
 
     /* Initialize socket module. */
@@ -56,10 +63,15 @@ WINC1500Interface::WINC1500Interface() {
     _wifi_thread.start(callback(wifi_thread_cb));
 }
 
-WINC1500Interface& WINC1500Interface::getInstance() {
-    static WINC1500Interface instance;
+WINC1500Interface& WINC1500Interface::getInstance(SVNVStore* nvstore) {
+    static WINC1500Interface instance(nvstore);
 
     return instance;
+}
+
+WINC1500Interface& WINC1500Interface::getInstance() {
+
+    return WINC1500Interface::getInstance(_nvstore);
 }
 
 bool WINC1500Interface::isInitialized() {
@@ -224,6 +236,10 @@ const char* WINC1500Interface::get_otp_mac_address() {
 int WINC1500Interface::set_mac_address(const uint8* mac_address) {
     uint8 mac_buffer[6];
     memcpy(mac_buffer, mac_address, 6);
+    int rc = _nvstore->nv_store_set_mac(mac_buffer, sizeof(mac_buffer));
+    if (rc) {
+        winc_debug(_winc_debug, "Can't write MAC to nv-store res: %d \r\n", rc);
+    }
     return m2m_wifi_set_mac_address(mac_buffer);
 }
 

@@ -28,17 +28,35 @@ WINC1500Interface::WINC1500Interface(SVNVStore* nvstore) {
     is_initialized = true;
 
     nm_bsp_init();
-
-    /* Initialize Wi-Fi driver with data and status callbacks. */
-    param.pfAppWifiCb = winc1500_wifi_cb;
-    ret = m2m_wifi_init(&param);
+    nm_drv_init_hold();
+    uint8 u8Mode = M2M_WIFI_MODE_NORMAL;
+    ret = wait_for_bootrom(u8Mode);
     if (M2M_SUCCESS != ret) {
-        is_initialized = false;
-        switch (ret) {
-            case M2M_ERR_FIRMWARE:
-                winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
-            case M2M_ERR_FAIL:
-                winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
+        winc_debug(_winc_debug, "Error initialize bootrom \r\n");
+    }
+    wait(0.2);
+    tstrM2mRev firm_info;
+    nm_get_firmware_info(&firm_info);
+    winc_debug(_winc_debug, "WINC firmware version: %d.%d.%d\r\n",
+            firm_info.u8FirmwareMajor, firm_info.u8FirmwareMinor, firm_info.u8FirmwarePatch);
+    uint16_t firm_version = M2M_MAKE_VERSION(firm_info.u8FirmwareMajor, firm_info.u8FirmwareMinor, firm_info.u8FirmwarePatch);
+    uint16_t min_req_version = M2M_MAKE_VERSION(M2M_MIN_REQ_DRV_VERSION_MAJOR_NO, M2M_MIN_REQ_DRV_VERSION_MINOR_NO, M2M_MIN_REQ_DRV_VERSION_PATCH_NO);
+    if ((firm_info.u8FirmwareMajor > WINC1500_MAX_MAJOR_VERSION) || (firm_version < min_req_version)) {
+        winc_debug(_winc_debug, "WINC1500 FIRMWARE ERROR. Please, update firmware for winc1500");
+        nm_bus_iface_deinit();
+        nm_spi_deinit();
+    } else {
+        /* Initialize Wi-Fi driver with data and status callbacks. */
+        param.pfAppWifiCb = winc1500_wifi_cb;
+        ret = m2m_wifi_init(&param);
+        if (M2M_SUCCESS != ret) {
+            is_initialized = false;
+            switch (ret) {
+                case M2M_ERR_FIRMWARE:
+                    winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
+                case M2M_ERR_FAIL:
+                    winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
+            }
         }
     }
     if(_nvstore) {

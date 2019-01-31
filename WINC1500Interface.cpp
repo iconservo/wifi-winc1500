@@ -641,8 +641,8 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
 
     winc_debug(_winc_debug, "socket_send entry point\n");
-    winc_debug(_winc_debug, "Socket ID: %i\n", socket->id);
-    winc_debug(_winc_debug, "Data to send: %s\n", (char*)data);
+    winc_debug(true, "Socket ID: %i\n", socket->id);
+    winc_debug(true, "Data to send: %s\n", (char*)data);
     winc_debug(_winc_debug, "Data size: %i\n", size);
     winc_debug(_winc_debug, "strlen: %i\n", strlen((char*)data));
 
@@ -683,9 +683,17 @@ int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_
             return NSAPI_ERROR_TIMEOUT;
         }
 
-        winc_debug(_winc_debug, "Recv semaphore released!");
-        winc_debug(_winc_debug, "Recv data size: %u", socket->received_data_size);
-        winc_debug(_winc_debug, "Received data: (%.*s)", socket->received_data_size, &socket->input_buff[0]);
+        winc_debug(true, "Recv semaphore released!");
+        winc_debug(true, "Recv data size: %u", socket->received_data_size);
+        // winc_debug(true, "Received data: (%.*s)", socket->received_data_size, &socket->input_buff[0]);
+        winc_debug(true, "Here is the received data:\n");
+        if (true) {
+            for (int i = 0; i < socket->received_data_size; i++)
+            {   
+                printf("%02X ", socket->read_out_pos[i]);
+            }
+            printf("\n\n");
+        }
 
         return socket->received_data_size; //to do: fix recv function
     }
@@ -722,6 +730,9 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
             int bytes_to_delete = (int)(socket->read_out_pos - &socket->input_buff[0]);
             int bytes_to_copy = (int)(&socket->input_buff[sizeof(socket->input_buff)-1]-socket->read_out_pos);
 
+            winc_debug(_winc_debug, "bytes_to_delete: %i", bytes_to_delete);
+            winc_debug(_winc_debug, "bytes_to_copy: (%.*s)", bytes_to_copy);
+
             memset(socket->input_buff, 0, bytes_to_delete);
             memmove(socket->input_buff, socket->read_out_pos, bytes_to_copy);
 
@@ -739,10 +750,20 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     }
 
     winc_debug(true, "Dumping data size: %i", (int)size);
-    winc_debug(true, "Dumping data: (%.*s)", (uint8_t)size, (char*)socket->read_out_pos);
+    // winc_debug(true, "Dumping data: (%.*s)", (uint8_t)size, (char*)socket->read_out_pos);
+
+    winc_debug(true, "Here is the dumped data message:\n");
+    if (true) {
+        for (int i = 0; i < size+5; i++)
+        {   
+            printf("%02X ", socket->read_out_pos[i]);
+        }
+        printf("\n\n");
+    }
 
     //continue to dump data
     memmove(data, socket->read_out_pos, size);
+    // &data[size-1] = 0x00;
     //change pointer pos
     socket->read_out_pos += size;        
             
@@ -880,7 +901,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
                 _got_scan_result.release();
             }
 
-            break;
+            break; 
         }
 
         case M2M_WIFI_RESP_CON_STATE_CHANGED: {
@@ -894,7 +915,6 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
                 _ip_config.u32SubnetMask = 0;
                 printf("M2M_WIFI_RESP_CON_STATE_CHANGED. DISCONENCTED\r\n");
                 printf("Wi-Fi disconnected\r\n");
-
                 _disconnected.release();
             }
 
@@ -942,7 +962,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
         case SOCKET_MSG_CONNECT:
 
             pstrConnect = (tstrSocketConnectMsg*)pvMsg;
-
+ 
             if (pstrConnect->s8Error == 0) {
                 // no error
                 winc_debug(_winc_debug, "Socket successfully connected!");
@@ -966,15 +986,26 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
                 //copy received data to socket buffer
                 // memmove(socket->input_buff_pos, pstrRecvMsg->pu8Buffer, pstrRecvMsg->s16BufferSize);
                 //shift pointer
-                socket->input_buff_pos += pstrRecvMsg->s16BufferSize;
-                socket->received_data_size += pstrRecvMsg->s16BufferSize;
+                
 
                 winc_debug(_winc_debug, "Buffer size:  %i!", sizeof(pstrRecvMsg->pu8Buffer));
-                
                 winc_debug(_winc_debug, "Received some data from socket: %i!", socket->id);
                 winc_debug(_winc_debug, "Received data: (%.*s)", pstrRecvMsg->s16BufferSize, (char*)pstrRecvMsg->pu8Buffer);
+
+                winc_debug(_winc_debug, "Here is the received data:\n");
+                if (_winc_debug) {
+                    for (int i = 0; i < pstrRecvMsg->s16BufferSize; i++)
+                    {   
+                        printf("%02X ", socket->input_buff_pos[i]);
+                    }
+                    printf("\n\n");
+                }
+
                 winc_debug(_winc_debug, "Data size: %i", pstrRecvMsg->s16BufferSize);
                 winc_debug(_winc_debug, "remaining data size: %i", pstrRecvMsg->u16RemainingSize);
+
+                socket->input_buff_pos += pstrRecvMsg->s16BufferSize;
+                socket->received_data_size += pstrRecvMsg->s16BufferSize;
 
                 if (pstrRecvMsg->u16RemainingSize != 0) {
                     winc_debug(_winc_debug, "Some data left [%i], waiting...", pstrRecvMsg->u16RemainingSize);

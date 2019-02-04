@@ -5,6 +5,7 @@
 
 #include "mbed.h"
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
+#include "platform/CircularBuffer.h"
 
 extern "C" {
 #include "m2m_wifi.h"
@@ -18,7 +19,7 @@ extern "C" {
 #endif
 
 #ifndef WINC1500_SOCK_RX_SIZE
-#define WINC1500_SOCK_RX_SIZE 1500
+#define WINC1500_SOCK_RX_SIZE 1596
 #endif
 
 #define SSID_LEN 6

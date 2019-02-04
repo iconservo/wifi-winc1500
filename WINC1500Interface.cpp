@@ -683,11 +683,11 @@ int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_
             return NSAPI_ERROR_TIMEOUT;
         }
 
-        winc_debug(true, "Recv semaphore released!");
-        winc_debug(true, "Recv data size: %u", socket->received_data_size);
+        winc_debug(_winc_debug, "Recv semaphore released!");
+        winc_debug(_winc_debug, "Recv data size: %u", socket->received_data_size);
         // winc_debug(true, "Received data: (%.*s)", socket->received_data_size, &socket->input_buff[0]);
-        winc_debug(true, "Here is the received data:\n");
-        if (true) {
+        winc_debug(_winc_debug, "Here is the received data:\n");
+        if (_winc_debug) {
             for (int i = 0; i < socket->received_data_size; i++)
             {   
                 printf("%02X ", socket->read_out_pos[i]);
@@ -749,11 +749,11 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
         ptr_diff = (int)(socket->input_buff_pos - socket->read_out_pos);   
     }
 
-    winc_debug(true, "Dumping data size: %i", (int)size);
+    winc_debug(false, "Dumping data size: %i", (int)size);
     // winc_debug(true, "Dumping data: (%.*s)", (uint8_t)size, (char*)socket->read_out_pos);
 
-    winc_debug(true, "Here is the dumped data message:\n");
-    if (true) {
+    winc_debug(false, "Here is the dumped data message:\n");
+    if (false) {
         for (int i = 0; i < size+5; i++)
         {   
             printf("%02X ", socket->read_out_pos[i]);

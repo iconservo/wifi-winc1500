@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 #ifndef WINC1500_SOCK_RX_SIZE
-#define WINC1500_SOCK_RX_SIZE 1596
+#define WINC1500_SOCK_RX_SIZE SOCKET_BUFFER_MAX_LENGTH
 #endif
 
 #define SSID_LEN 6
@@ -46,6 +46,10 @@ struct WINC1500_socket {
     nsapi_protocol_t proto;
     bool connected;
     SocketAddress addr;
+    //cirlular buffer
+    CircularBuffer<uint8_t, WINC1500_SOCK_RX_SIZE*2> circ_buff;
+    uint8_t chunk_buff[16];
+
     uint8_t input_buff[WINC1500_SOCK_RX_SIZE*2];
     uint8_t* input_buff_pos = input_buff;
     uint8_t* read_out_pos = input_buff;

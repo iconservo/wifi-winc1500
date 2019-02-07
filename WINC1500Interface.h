@@ -36,7 +36,7 @@ extern "C" {
 #define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
 #define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
 #define WINC1500_SEND_TIMEOUT 5000        /* milliseconds */
-#define WINC1500_RECV_TIMEOUT 5000        /* milliseconds */
+#define WINC1500_RECV_TIMEOUT 10000        /* milliseconds */
 
 #define WINC1500_MAX_MAJOR_VERSION 30
 
@@ -110,6 +110,9 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc_chip_erase(void);
     int winc_write_ota(const unsigned char *data, unsigned int data_len);
     int winc_switch_part(void);
+    int chip_init(void);
+    void iface_disable(void);
+
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
     virtual int socket_close(void* handle);

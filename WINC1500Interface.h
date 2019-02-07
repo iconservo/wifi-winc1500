@@ -32,8 +32,8 @@ extern "C" {
 #define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
 #define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
 #define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
-#define WINC1500_SEND_TIMEOUT 2000        /* milliseconds */
-#define WINC1500_RECV_TIMEOUT 3000        /* milliseconds */
+#define WINC1500_SEND_TIMEOUT 5000        /* milliseconds */
+#define WINC1500_RECV_TIMEOUT 10000        /* milliseconds */
 
 #define WINC1500_MAX_MAJOR_VERSION 30
 
@@ -92,6 +92,8 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual int scan(WiFiAccessPoint* res, unsigned count);
     const char* get_otp_mac_address();
     int set_mac_address(const uint8* mac_address);
+    int chip_init(void);
+    void iface_disable(void);
 
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);

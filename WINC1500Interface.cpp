@@ -17,16 +17,40 @@ const char* ip_to_str(const uint32* ip_addr, char* buf, int len) {
 
 WINC1500Interface::WINC1500Interface(SVNVStore* nvstore) {
     // init sequence
+    _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
+    _nvstore = nvstore;
+    chip_init();
+    winc_debug(_winc_debug, "Starting winc..");
+}
+
+WINC1500Interface& WINC1500Interface::getInstance(SVNVStore* nvstore) {
+    static WINC1500Interface instance(nvstore);
+
+    return instance;
+}
+
+WINC1500Interface& WINC1500Interface::getInstance() {
+
+    return WINC1500Interface::getInstance(_nvstore);
+}
+
+bool WINC1500Interface::isInitialized() {
+    return is_initialized;
+}
+
+void WINC1500Interface::iface_disable(void) {
+    m2m_wifi_deinit(NULL);
+    nm_bsp_deinit();
+    is_initialized = false;
+}
+
+int WINC1500Interface::chip_init(void) {
     tstrWifiInitParam param;
     int8_t ret;
     uint8 mac_buffer[6];
 
-    _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
-    _nvstore = nvstore;
     /* Initialize the BSP. */
-
     is_initialized = true;
-
     nm_bsp_init();
     nm_drv_init_hold();
     uint8 u8Mode = M2M_WIFI_MODE_NORMAL;
@@ -65,23 +89,9 @@ WINC1500Interface::WINC1500Interface(SVNVStore* nvstore) {
                 mac_buffer[0], mac_buffer[1], mac_buffer[2], mac_buffer[3], mac_buffer[4], mac_buffer[5]);
         m2m_wifi_set_mac_address(mac_buffer);
     }
-    winc_debug(_winc_debug, "Starting winc..");
     _wifi_thread.start(callback(wifi_thread_cb));
-}
 
-WINC1500Interface& WINC1500Interface::getInstance(SVNVStore* nvstore) {
-    static WINC1500Interface instance(nvstore);
-
-    return instance;
-}
-
-WINC1500Interface& WINC1500Interface::getInstance() {
-
-    return WINC1500Interface::getInstance(_nvstore);
-}
-
-bool WINC1500Interface::isInitialized() {
-    return is_initialized;
+    return ret;
 }
 
 int WINC1500Interface::connect(const char* ssid, const char* pass, nsapi_security_t security, uint8_t channel) {

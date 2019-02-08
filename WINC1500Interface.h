@@ -154,6 +154,11 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     uint16_t _received_data_size;
     static SVNVStore* _nvstore;
 
+    union {
+        uint32_t p32ip_addr;
+        uint8_t p8ip_addr[NSAPI_IPv4_BYTES];
+    } _resolved_DNS_addr;
+
     WINC1500Interface(SVNVStore* nvstore);
     WINC1500Interface(WINC1500Interface const&);  // Don't Implement.
     void operator=(WINC1500Interface const&);     // Don't implement

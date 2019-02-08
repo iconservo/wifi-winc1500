@@ -2,6 +2,8 @@
 #include "TCPSocket.h"
 #include "ScopedLock.h"
 
+#define BYTE_SWAP(num) ((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000);
+
 uint8_t WINC1500Interface::_scan_request_index;
 /** Number of APs found. */
 uint8_t WINC1500Interface::_num_found_ap;
@@ -164,6 +166,11 @@ nsapi_error_t WINC1500Interface::gethostbyname(const char* name, SocketAddress* 
         winc_debug(_winc_debug, "DNS resolve timeout!");
         return NSAPI_ERROR_TIMEOUT;
     }
+
+    char ip32_addr[NSAPI_IP_SIZE];
+    ip_to_str(&_resolved_DNS_addr.p32ip_addr, ip32_addr, sizeof(ip32_addr));
+    winc_debug(_winc_debug, "IP address is: %s", ip32_addr);
+    address->set_ip_address(ip32_addr);
 
     return NSAPI_ERROR_OK;
 }
@@ -435,19 +442,73 @@ int winc1500_err_to_nsapi_err(int err) {
     }
 }
 
+/* Convert the character string in "ip" into an unsigned integer.
+   This assumes that an unsigned integer contains at least 32 bits. */
+
+uint32_t ip_to_int (const char * ip)
+{
+    /* The return value. */
+    unsigned v = 0;
+    /* The count of the number of bytes processed. */
+    int i;
+    /* A pointer to the next digit to process. */
+    const char * start;
+
+    start = ip;
+    for (i = 0; i < 4; i++) {
+        /* The digit being processed. */
+        char c;
+        /* The value of this byte. */
+        int n = 0;
+        while (1) {
+            c = * start;
+            start++;
+            if (c >= '0' && c <= '9') {
+                n *= 10;
+                n += c - '0';
+            }
+            /* We insist on stopping at "." if we are still parsing
+               the first, second, or third numbers. If we have reached
+               the end of the numbers, we will allow any character. */
+            else if ((i < 3 && c == '.') || i == 3) {
+                break;
+            }
+            else {
+                return 0;
+            }
+        }
+        if (n >= 256) {
+            return 0;
+        }
+        v *= 256;
+        v += n;
+    }
+    return (uint32_t)v;
+}
+
 int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     ScopedLock<Mutex> lock(_mutex);
 
     winc_debug(_winc_debug, "Socket_connect");
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
+    struct sockaddr_in _current_sock;
 
-    _current_sock_addr.sin_family = AF_INET;
-    _current_sock_addr.sin_port = _htons(socket->port);
+    _current_sock.sin_family = AF_INET;
+    _current_sock.sin_port = _htons(addr.get_port());
 
-    winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", (unsigned int)_current_sock_addr.sin_addr.s_addr);
+    uint32_t got_addr = BYTE_SWAP(ip_to_int(addr.get_ip_address()));
+    winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", got_addr);
+    _current_sock.sin_addr.s_addr = got_addr;
 
-    int rc = WINC_SOCKET(connect)(socket->id, (struct sockaddr*)&_current_sock_addr, sizeof(_current_sock_addr));
+    winc_debug(_winc_debug, "Socket id: %x\n", socket->id);
+    winc_debug(_winc_debug, "Got address: %s\n", addr.get_ip_address());
+    winc_debug(_winc_debug, "Got port: %u\n", addr.get_port());
+
+    winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", (unsigned int)_current_sock.sin_addr.s_addr);
+    winc_debug(_winc_debug, "_current_sock_addr.sin_port: %x\n", _current_sock.sin_port);
+
+    int rc = WINC_SOCKET(connect)(socket->id, (struct sockaddr*)&_current_sock, sizeof(struct sockaddr));
 
     winc_debug(_winc_debug, "rc = %i\n", rc);
     winc_debug(_winc_debug, "Waiting for semaphore release...");
@@ -721,6 +782,7 @@ void WINC1500Interface::dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerI
                    (int)IPV4_BYTE(u32ServerIP, 3));
 
         winc_debug(_winc_debug, "DNS resolved. serve IP: 0x%x", (unsigned int)u32ServerIP);
+        _resolved_DNS_addr.p32ip_addr = u32ServerIP;
         _current_sock_addr.sin_addr.s_addr = u32ServerIP;
         _socket_dns_resolved.release();
     } else {

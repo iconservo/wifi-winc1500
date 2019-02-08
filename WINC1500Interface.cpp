@@ -8,6 +8,8 @@
 
 #define BYTE_SWAP(num) ((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000);
 
+#define BYTE_SWAP(num) ((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000);
+
 uint8_t WINC1500Interface::_scan_request_index;
 /** Number of APs found. */
 uint8_t WINC1500Interface::_num_found_ap;
@@ -180,10 +182,7 @@ nsapi_error_t WINC1500Interface::gethostbyname(const char* name, SocketAddress* 
 
     char ip32_addr[NSAPI_IP_SIZE];
     ip_to_str(&_resolved_DNS_addr.p32ip_addr, ip32_addr, sizeof(ip32_addr));
-    // *ip32_addr = ip_to_str(&_resolved_DNS_addr.p32ip_addr, output_buffer, sizeof(output_buffer));
-
     winc_debug(_winc_debug, "IP address is: %s", ip32_addr);
-
     address->set_ip_address(ip32_addr);
 
     return NSAPI_ERROR_OK;
@@ -558,7 +557,10 @@ int winc1500_err_to_nsapi_err(int err) {
 }
 
 /* Convert the character string in "ip" into an unsigned integer.
+<<<<<<< HEAD
 
+=======
+>>>>>>> updated interface to be able to connect socket to IPaddr url
    This assumes that an unsigned integer contains at least 32 bits. */
 
 uint32_t ip_to_int (const char * ip)
@@ -608,6 +610,14 @@ int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     winc_debug(_winc_debug, "Socket_connect");
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
+    struct sockaddr_in _current_sock;
+
+    _current_sock.sin_family = AF_INET;
+    _current_sock.sin_port = _htons(addr.get_port());
+
+    uint32_t got_addr = BYTE_SWAP(ip_to_int(addr.get_ip_address()));
+    winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", got_addr);
+    _current_sock.sin_addr.s_addr = got_addr;
 
     struct sockaddr_in _current_sock;
 

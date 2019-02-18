@@ -226,6 +226,10 @@ int WINC1500Interface::disconnect() {
     return NSAPI_ERROR_OK;
 }
 
+int8_t WINC1500Interface::get_channel() {
+    return _ap_config.current_channel;
+}
+
 const char* WINC1500Interface::get_ip_address() {
     return ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer));
 }
@@ -682,6 +686,8 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             printf_all("Wi-Fi connected\r\n");
             printf_all("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
 
+            m2m_wifi_get_connection_info();
+
             // release the connection semaphore
             _connected.release();
 
@@ -692,6 +698,26 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             _ip_config.rssi = *ptrssi;
             _rssi_request.release();
         }
+        case M2M_WIFI_RESP_CONN_INFO:
+		{
+			tstrM2MConnInfo		*pstrConnInfo = (tstrM2MConnInfo*)pvMsg;
+				
+			printf_all("CONNECTED AP INFO\n");
+			printf_all("SSID : %s\n",pstrConnInfo->acSSID);
+			printf_all("SEC TYPE : %d\n",pstrConnInfo->u8SecType);
+			printf_all("Signal Strength	: %d\n", pstrConnInfo->s8RSSI); 
+			printf_all("Local IP Address : %d.%d.%d.%d\n", 
+			pstrConnInfo->au8IPAddr[0] , pstrConnInfo->au8IPAddr[1], pstrConnInfo->au8IPAddr[2], pstrConnInfo->au8IPAddr[3]);
+            printf_all("Current WiFi Channel: %d\n", pstrConnInfo->u8CurrChannel); 
+
+            _ap_config.sec_type = pstrConnInfo->u8SecType;
+            _ap_config.rssi = pstrConnInfo->s8RSSI;
+            _ap_config.current_channel = pstrConnInfo->u8CurrChannel;
+            memcpy(_ap_config.ap_SSID, pstrConnInfo->acSSID, sizeof(pstrConnInfo->acSSID));
+            memcpy(_ap_config.ip_addr, pstrConnInfo->au8IPAddr, sizeof(pstrConnInfo->au8IPAddr));
+            memcpy(_ap_config.mac_addr, pstrConnInfo->au8MACAddress, sizeof(pstrConnInfo->au8MACAddress));
+            break;
+		}
     }
 }
 

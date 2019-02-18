@@ -69,6 +69,21 @@ struct connection_info {
     sint8 rssi;
 };
 
+struct ap_connection_info {
+    char ap_SSID[M2M_MAX_SSID_LEN];
+	/*!< AP connection SSID name  */
+	uint8_t	sec_type;
+	/*!< Security type */
+	uint8_t	ip_addr[4];
+	/*!< Connection IP address */
+	uint8_t	mac_addr[6];
+	/*!< MAC address of the peer Wi-Fi station */ 
+	int	rssi;
+	/*!< Connection RSSI signal */
+	uint8_t	current_channel; 
+	/*!< Wi-Fi RF channel number  1,2,... 14.  */
+};
+
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
    public:
     virtual int connect();
@@ -89,6 +104,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual const char* get_gateway();
     virtual const char* get_netmask();
     virtual int8_t get_rssi();
+    virtual int8_t get_channel();
     virtual int scan(WiFiAccessPoint* res, unsigned count);
     const char* get_otp_mac_address();
     int set_mac_address(const uint8* mac_address);
@@ -130,6 +146,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     WINC1500_socket* _socket_obj[MAX_SOCKET];  // store addresses of socket handles
     struct WINC1500_socket _socker_arr[MAX_SOCKET] = {0};
     struct connection_info _ip_config;
+    struct ap_connection_info _ap_config;
 
     bool _winc_debug;
     bool is_initialized;

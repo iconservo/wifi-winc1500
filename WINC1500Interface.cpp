@@ -852,6 +852,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             sint8* ptrssi = (sint8*)pvMsg;
             _ip_config.rssi = *ptrssi;
             _rssi_request.release();
+            break;
         }
         case M2M_WIFI_RESP_CONN_INFO:
 		{

@@ -446,8 +446,17 @@ int winc1500_err_to_nsapi_err(int err) {
     }
 }
 
-/* Convert the character string in "ip" into an unsigned integer.
-   This assumes that an unsigned integer contains at least 32 bits. */
+const char* sec_type_2str(uint8 sec_type) {
+    switch (sec_type) {
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_INVALID)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_OPEN)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_WPA_PSK)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_WEP)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_802_1X)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_NUM_AUTH_TYPES)
+    }
+    return "unknown security type";
+}
 
 uint32_t ip_to_int (const char * ip)
 {
@@ -705,7 +714,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
 				
 			printf_all("CONNECTED AP INFO\n");
 			printf_all("SSID : %s\n",pstrConnInfo->acSSID);
-			printf_all("SEC TYPE : %d\n",pstrConnInfo->u8SecType);
+			printf_all("SEC TYPE : %s\n",sec_type_2str(pstrConnInfo->u8SecType));
 			printf_all("Signal Strength	: %d\n", pstrConnInfo->s8RSSI); 
 			printf_all("Local IP Address : %d.%d.%d.%d\n", 
 			pstrConnInfo->au8IPAddr[0] , pstrConnInfo->au8IPAddr[1], pstrConnInfo->au8IPAddr[2], pstrConnInfo->au8IPAddr[3]);

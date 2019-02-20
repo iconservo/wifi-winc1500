@@ -46,6 +46,12 @@ extern "C" {
 
 #define IPV4_BYTE(val, index) ((val >> (index * 8)) & 0xFF)
 
+// macro for printing error messages
+#define CASE_ENUM_ENTITY_STR_RETURN(mnemonic) \
+    case mnemonic: {                          \
+        return #mnemonic;                     \
+    }
+
 struct WINC1500_socket {
     int id;
     nsapi_protocol_t proto;

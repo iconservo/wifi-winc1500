@@ -62,7 +62,7 @@ struct WINC1500_socket {
     SocketAddress addr;
     //cirlular buffer
     CircularBuffer<uint8_t, WINC1500_SOCK_RX_SIZE*2> circ_buff;
-    uint8_t chunk_buff[16];
+    uint8_t chunk_buff[1024];
 
     uint8_t input_buff[WINC1500_SOCK_RX_SIZE*2];
     uint8_t* input_buff_pos = input_buff;

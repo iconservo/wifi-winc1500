@@ -511,15 +511,11 @@ int WINC1500Interface::socket_accept(void* server, void** socket, SocketAddress*
 }
 
 int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size) {
-    struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
-
-    winc_debug(_winc_debug, "socket_send entry point\n");
-    winc_debug(true, "Socket ID: %i\n", socket->id);
-    winc_debug(true, "Data to send: %s\n", (char*)data);
-    winc_debug(_winc_debug, "Data size: %i\n", size);
-    winc_debug(_winc_debug, "strlen: %i\n", strlen((char*)data));
-
     ScopedLock<Mutex> lock(_mutex);
+
+    struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
+    
+    winc_debug(_winc_debug, "socket ID: %i, %i bytes to send", socket->id, size);
 
     // send data
     sint16 s16Ret = WINC_SOCKET(send)(socket->id, (void*)data, size, 0);
@@ -536,6 +532,7 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
         return NSAPI_ERROR_TIMEOUT;
     }
 
+    winc_debug(_winc_debug, "%i bytes sent", size);
     return size;
 }
 
@@ -576,12 +573,33 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     ScopedLock<Mutex> lock(_mutex);
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
+    uint8_t *ptr = (uint8_t *) data;
 
     if (!socket->connected) {
         _mutex.unlock();
         return NSAPI_ERROR_CONNECTION_LOST;
     }
 
+    for (int n = size; n; ) {
+        int len = socket->circ_buff.size();
+        if (len > n) {
+            len = n;
+        }
+        for (int i=0; i<len; i++) {
+            socket->circ_buff.pop(*ptr++);
+        }        
+        n -= len;
+        if (n > 0) {
+            int err = request_socket_recv(socket, socket->chunk_buff, sizeof(socket->chunk_buff));
+            if (err < 0) {
+                winc_debug(_winc_debug, "Error  %i", err);
+                return err;  
+            }    
+        }
+    }
+    winc_debug(_winc_debug, "Return %i ( socket->circ_buff.size() = %i )", size, socket->circ_buff.size());
+
+/*
     while(socket->circ_buff.size() < size) {
         
         winc_debug(_winc_debug, "Not enough data to send to user: %i, needed: %i",socket->circ_buff.size(), size);
@@ -597,7 +615,8 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     for (uint16_t i=0; i<size; i++) {
         socket->circ_buff.pop(data_ptr[i]);
     }
-            
+*/          
+
     return size;
 }
 
@@ -758,7 +777,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
                 winc_debug(_winc_debug, "Buffer size:  %i!", sizeof(pstrRecvMsg->pu8Buffer));
                 winc_debug(_winc_debug, "Received some data from socket: %i!", socket->id);
-                winc_debug(_winc_debug, "Received data: (%.*s)", pstrRecvMsg->s16BufferSize, (char*)pstrRecvMsg->pu8Buffer);
+                //winc_debug(_winc_debug, "Received data: (%.*s)", pstrRecvMsg->s16BufferSize, (char*)pstrRecvMsg->pu8Buffer);
 
                 // winc_debug(_winc_debug, "Here is the received data:\n");
                 // if (_winc_debug) {

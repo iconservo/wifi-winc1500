@@ -9,7 +9,7 @@ extern "C"
 {
 #endif
 
-void printf_all(const char* format, ...);
+//void printf_all(const char* format, ...);
 
 #ifndef __cplusplus
 // winc headers use this in C compile mode
@@ -76,6 +76,7 @@ enum { true = 1, false =0 };
 #define M2M_LOG_REQ									3
 #define M2M_LOG_DBG									4
 
+#define printf_all(...)                     printf( __VA_ARGS__ )
 
 #define CONF_WINC_PRINTF(...)                printf_all( __VA_ARGS__ )
 

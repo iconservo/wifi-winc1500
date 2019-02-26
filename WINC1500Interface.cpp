@@ -57,6 +57,10 @@ int WINC1500Interface::chip_init(void) {
     int8_t ret;
     uint8 mac_buffer[6];
 
+    for (int i = 0; i < MAX_SOCKET; i++) {
+        _cbs[i].callback = NULL;
+    }
+
     /* Initialize the BSP. */
     is_initialized = true;
     nm_bsp_init();
@@ -759,6 +763,10 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     }
     winc_debug(_winc_debug, "Return %i ( socket->circ_buff.size() = %i )", size, socket->circ_buff.size());
 
+    if ((socket->circ_buff.size() > 0) && _cbs[socket->id].callback) {
+        _cbs[socket->id].callback(_cbs[socket->id].data);
+    }
+
 /*
     while(socket->circ_buff.size() < size) {
         
@@ -788,7 +796,12 @@ int WINC1500Interface::socket_recvfrom(void* handle, SocketAddress* addr, void* 
     return NSAPI_ERROR_UNSUPPORTED;
 }
 
-void WINC1500Interface::socket_attach(void* handle, void (*cb)(void*), void* data) {}
+void WINC1500Interface::socket_attach(void* handle, void (*cb)(void*), void* data) {
+    struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
+    winc_debug(_winc_debug, "socket id %i", socket->id);
+    _cbs[socket->id].callback = cb;
+    _cbs[socket->id].data = data;    
+}
 
 void WINC1500Interface::winc1500_wifi_cb(uint8_t u8MsgType, void* pvMsg) {
     getInstance().wifi_cb(u8MsgType, pvMsg);
@@ -914,6 +927,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
     tstrSocketConnectMsg* pstrConnect;
     tstrSocketRecvMsg* pstrRecvMsg;
     int send_ret;
+    struct WINC1500_socket* socket = &_socker_arr[sock];
 
     switch (u8Msg) {
         case SOCKET_MSG_CONNECT:
@@ -930,6 +944,10 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
                 //todo: add close socket if connection failed
             }
 
+            if (_cbs[socket->id].callback) {
+                _cbs[socket->id].callback(_cbs[socket->id].data);
+            }                
+
             break;
 
         case SOCKET_MSG_RECV:
@@ -937,9 +955,6 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
             pstrRecvMsg = (tstrSocketRecvMsg*)pvMsg;
 
              if ((pstrRecvMsg->pu8Buffer != NULL) && (pstrRecvMsg->s16BufferSize > 0)) {
-                //find the appropriate socket
-                struct WINC1500_socket* socket = &_socker_arr[sock];
-
                 // CircularBuffer* buf = socket->circ_buff;
                 uint8_t* current_val = pstrRecvMsg->pu8Buffer;
 
@@ -988,16 +1003,17 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
                 } else {
                     winc_debug(_winc_debug, "All data received!");
                     _socket_data_recv.release();
+
+                    if (_cbs[socket->id].callback) {
+                        _cbs[socket->id].callback(_cbs[socket->id].data);
+                    }                
                 }
             }
 
             break;
         case SOCKET_MSG_SEND:
-
-            winc_debug(_winc_debug, "Some data was sent!");
-
             send_ret = *(int16_t*)pvMsg;
-            winc_debug(_winc_debug, "pvMSG: %i", send_ret);
+            winc_debug(_winc_debug, "sent %i bytes", send_ret);
 
             if (send_ret < 0) {
                 /* Send failed. */
@@ -1005,8 +1021,12 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
             } else {
                 _socket_data_sent.release();
-            }
 
+                if (_cbs[socket->id].callback) {
+                    _cbs[socket->id].callback(_cbs[socket->id].data);
+                }                
+            }
+            
             break;
     }
 }

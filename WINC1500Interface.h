@@ -29,7 +29,7 @@ extern "C" {
 #define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
 #define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
 #define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
-#define WINC1500_SEND_TIMEOUT 5000        /* milliseconds */
+#define WINC1500_SEND_TIMEOUT 10000        /* milliseconds */
 #define WINC1500_RECV_TIMEOUT 5000        /* milliseconds */
 
 #define winc_debug(cond, ...)                                        \
@@ -118,7 +118,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     friend class WINC1500TLSSocket;
     static WINC1500Interface* instance;
 
-    Thread _wifi_thread;
+    Thread _wifi_thread, _recv_thread;
     Semaphore _got_scan_result, _connected, _disconnected, _rssi_request;
 
     // socket related private variables
@@ -165,7 +165,11 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     void wifi_cb(uint8_t u8MsgType, void* pvMsg);
     static void winc1500_wifi_cb(uint8_t u8MsgType, void* pvMsg);
     static void wifi_thread_cb();
-
+    
+    
+    void recv_thread_cb();
+    static void winc1500_recv_thread_cb();
+    
     static int winc1500_err_to_mn_err(int err);
 
     void socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg);
@@ -177,6 +181,11 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int request_socket_recv(WINC1500_socket* socket, void* input_buff_ptr, unsigned size);
 
     bool isInitialized();
+
+    struct {
+        void (*callback)(void *);
+        void *data;
+    } _cbs[MAX_SOCKET];
 };
 
 #endif

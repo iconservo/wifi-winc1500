@@ -54,6 +54,7 @@ WINC1500Interface::WINC1500Interface() {
     WINC_SOCKET(registerSocketCallback)(winc1500_socket_cb, winc1500_dnsResolveCallback);
 
     _wifi_thread.start(callback(wifi_thread_cb));
+    _recv_thread.start(callback(winc1500_recv_thread_cb));
 }
 
 WINC1500Interface& WINC1500Interface::getInstance() {
@@ -281,7 +282,7 @@ int WINC1500Interface::socket_open_tls(void** handle, nsapi_protocol_t proto, un
 }
 
 int WINC1500Interface::socket_open(void** handle, nsapi_protocol_t proto) {
-    winc_debug(_winc_debug, "WINC1500Interface::socket_open");
+    printf("WINC1500Interface::socket_open\n");
     if (!isInitialized()) {
         winc_debug(_winc_debug, "Winc1500 Interface is not initialized. Please, initialize it first...");
         return NSAPI_ERROR_DEVICE_ERROR;
@@ -364,6 +365,7 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
 }
 
 int WINC1500Interface::socket_close(void* handle) {
+    printf("WINC1500Interface::socket_close\n");
     ScopedLock<Mutex> lock(_mutex);
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
@@ -382,10 +384,12 @@ int WINC1500Interface::socket_close(void* handle) {
 }
 
 int WINC1500Interface::socket_bind(void* handle, const SocketAddress& address) {
+    printf("WINC1500Interface::socket_bind\n");
     return NSAPI_ERROR_UNSUPPORTED;
 }
 
 int WINC1500Interface::socket_listen(void* handle, int backlog) {
+    printf("WINC1500Interface::socket_listen\n");
     return NSAPI_ERROR_UNSUPPORTED;
 }
 
@@ -467,7 +471,7 @@ uint32_t ip_to_int (const char * ip)
 int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     ScopedLock<Mutex> lock(_mutex);
 
-    winc_debug(_winc_debug, "Socket_connect");
+    printf("WINC1500Interface::socket_connect\n");
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
 
@@ -503,20 +507,25 @@ int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     _socket_obj[socket->id] = socket;
     socket->connected = true;
 
+    //requesting recv
+    request_socket_recv(socket, socket->chunk_buff, sizeof(socket->chunk_buff));
+
     return rc;
 }
 
 int WINC1500Interface::socket_accept(void* server, void** socket, SocketAddress* addr) {
+    printf("WINC1500Interface::socket_accept\n");
     return NSAPI_ERROR_UNSUPPORTED;
 }
 
 int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size) {
+    printf("WINC1500Interface::socket_send\n");
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
 
     winc_debug(_winc_debug, "socket_send entry point\n");
     winc_debug(true, "Socket ID: %i\n", socket->id);
-    winc_debug(true, "Data to send: %s\n", (char*)data);
-    winc_debug(_winc_debug, "Data size: %i\n", size);
+    winc_debug(_winc_debug, "Data to send: %s\n", (char*)data);
+    winc_debug(true, "Data size: %i\n", size);
     winc_debug(_winc_debug, "strlen: %i\n", strlen((char*)data));
 
     ScopedLock<Mutex> lock(_mutex);
@@ -535,6 +544,7 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
         winc_debug(_winc_debug, "Socket send timeout!");
         return NSAPI_ERROR_TIMEOUT;
     }
+    winc_debug(_winc_debug, "Socket semaphore released!");
 
     return size;
 }
@@ -573,6 +583,7 @@ int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_
 }
 
 int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
+    printf("WINC1500Interface::socket_recv\n");
     ScopedLock<Mutex> lock(_mutex);
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
@@ -585,7 +596,7 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     while(socket->circ_buff.size() < size) {
         
         winc_debug(_winc_debug, "Not enough data to send to user: %i, needed: %i",socket->circ_buff.size(), size);
-        winc_debug(_winc_debug, "Requesting recv()");
+        winc_debug(true, "Requesting recv()");
         //try to acquire more data
         request_socket_recv(socket, socket->chunk_buff, sizeof(socket->chunk_buff));
     }
@@ -597,25 +608,74 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     for (uint16_t i=0; i<size; i++) {
         socket->circ_buff.pop(data_ptr[i]);
     }
-            
+
+    socket->received_data_size -= size;
+
     return size;
 }
 
 int WINC1500Interface::socket_sendto(void* handle, const SocketAddress& addr, const void* data, unsigned size) {
-    return NSAPI_ERROR_UNSUPPORTED;
+    printf("WINC1500Interface::socket_sendto\n");
+
+    struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
+
+    if (!socket) {
+        return NSAPI_ERROR_NO_SOCKET;
+    }
+
+    if((strcmp(addr.get_ip_address(), "0.0.0.0") == 0) || !addr.get_port())  {
+        return NSAPI_ERROR_DNS_FAILURE;
+    }
+
+    if (socket->connected && socket->addr != addr) {
+        if (!close(socket->id)) {
+            return NSAPI_ERROR_DEVICE_ERROR;
+        }
+        socket->connected = false;
+    }
+
+    if (!socket->connected) {
+        int err = socket_connect(socket, addr);
+        if (err < 0) {
+            return err;
+        }
+        socket->addr = addr;
+    }
+
+    return socket_send(socket, data, size);
 }
 
 int WINC1500Interface::socket_recvfrom(void* handle, SocketAddress* addr, void* data, unsigned size) {
-    return NSAPI_ERROR_UNSUPPORTED;
+    printf("WINC1500Interface::socket_recvfrom\n");
+    struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
+
+    if (!socket) {
+        return NSAPI_ERROR_NO_SOCKET;
+    }
+
+    int ret = socket_recv(socket, data, size);
+    if (ret >= 0 && addr) {
+        *addr = socket->addr;
+    }
+
+    return ret;
 }
 
-void WINC1500Interface::socket_attach(void* handle, void (*cb)(void*), void* data) {}
+void WINC1500Interface::socket_attach(void* handle, void (*cb)(void*), void* data) {
+    printf("WINC1500Interface::socket_attach\n");
+    struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
+    _cbs[socket->id].callback = cb;
+    _cbs[socket->id].data = data;
+}
 
 void WINC1500Interface::winc1500_wifi_cb(uint8_t u8MsgType, void* pvMsg) {
     getInstance().wifi_cb(u8MsgType, pvMsg);
 }
 
 void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
+
+    printf("WINC1500Interface::wifi_cb : %u\n", u8MsgType);
+
     switch (u8MsgType) {
         case M2M_WIFI_RESP_SCAN_DONE: {
             tstrM2mScanDone* pstrInfo = (tstrM2mScanDone*)pvMsg;
@@ -688,7 +748,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             _ip_config.u32SubnetMask = pIPAddress->u32SubnetMask;
             printf("Wi-Fi connected\r\n");
             printf("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
-
+            
             // release the connection semaphore
             _connected.release();
 
@@ -708,6 +768,7 @@ void WINC1500Interface::winc1500_socket_cb(SOCKET sock, uint8_t u8Msg, void* pvM
 
 void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
     winc_debug(_winc_debug, "socket_cb entry point");
+    winc_debug(_winc_debug, "WINC1500Interface::socket_cb : %u\n", u8Msg);
 
     tstrSocketConnectMsg* pstrConnect;
     tstrSocketRecvMsg* pstrRecvMsg;
@@ -734,6 +795,14 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
             pstrRecvMsg = (tstrSocketRecvMsg*)pvMsg;
 
+            // for (int i = 0; i < MAX_SOCKET; i++) {
+            //             if (_cbs[i].callback) {
+            //                 _cbs[i].callback(_cbs[i].data);
+            //             }
+            //         }
+
+            winc_debug(_winc_debug, "SOCKET_MSG_RECV");
+
              if ((pstrRecvMsg->pu8Buffer != NULL) && (pstrRecvMsg->s16BufferSize > 0)) {
                 //find the appropriate socket
                 struct WINC1500_socket* socket = &_socker_arr[sock];
@@ -757,7 +826,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
                 }
 
                 winc_debug(_winc_debug, "Buffer size:  %i!", sizeof(pstrRecvMsg->pu8Buffer));
-                winc_debug(_winc_debug, "Received some data from socket: %i!", socket->id);
+                winc_debug(true, "Received data (%u) from socket: %i!", pstrRecvMsg->s16BufferSize, socket->id);
                 winc_debug(_winc_debug, "Received data: (%.*s)", pstrRecvMsg->s16BufferSize, (char*)pstrRecvMsg->pu8Buffer);
 
                 // winc_debug(_winc_debug, "Here is the received data:\n");
@@ -785,6 +854,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
                 } else {
                     winc_debug(_winc_debug, "All data received!");
+                   
                     _socket_data_recv.release();
                 }
             }
@@ -795,13 +865,14 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
             winc_debug(_winc_debug, "Some data was sent!");
 
             send_ret = *(int16_t*)pvMsg;
-            winc_debug(_winc_debug, "pvMSG: %i", send_ret);
+            winc_debug(true, "Some data was sent. pvMSG: %i", send_ret);
 
             if (send_ret < 0) {
                 /* Send failed. */
                 winc_debug(_winc_debug, "Socket error: %i", send_ret);
 
             } else {
+
                 _socket_data_sent.release();
             }
 
@@ -817,6 +888,55 @@ void WINC1500Interface::wifi_thread_cb() {
         }
     }
 }
+
+void WINC1500Interface::winc1500_recv_thread_cb() {
+    getInstance().recv_thread_cb();
+}
+
+void WINC1500Interface::recv_thread_cb() {
+    while (1) {
+        for (int i = 0; i < MAX_SOCKET; i++) {
+            _mutex.lock();
+            if (_socket_obj[i] != 0) {
+                struct WINC1500_socket *socket = (struct WINC1500_socket *)_socket_obj[i];
+                /* Check if there is something to read for this socket. But if it */
+                /* has already been read : don't read again */
+                if ((socket->connected) && (socket->received_data_size == 0) && _cbs[socket->id].callback) {
+                    /* if no callback is set, no need to read ?*/
+
+                    //init recv fucntion one more time 
+                    sint16 err = WINC_SOCKET(recv)(socket->id, socket->chunk_buff, sizeof(socket->chunk_buff), 100);
+                    if (err != SOCK_ERR_NO_ERROR) {
+                        winc_debug(false, "Error requesting receive. err_code = %i", err);
+                        // return NSAPI_ERROR_DEVICE_ERROR;
+                    } else {
+                        winc_debug(false, "Successfully requested recv");
+
+                        uint32_t tok = _socket_data_recv.wait(WINC1500_RECV_TIMEOUT);
+                        if (!tok) {
+                            winc_debug(_winc_debug, "Socket recv timeout!");
+                            // return NSAPI_ERROR_TIMEOUT;
+                        }
+                    }
+
+                    if (socket->received_data_size < 0) {
+                        /* Mark donw connection has been lost or closed */
+                        winc_debug(_winc_debug, "WINC1500Interface socket_check_read: i %d closed\r\n", i);
+                        socket->connected = false;
+                    }
+                    if (socket->received_data_size != 0) {
+                        /* There is something to read in this socket*/
+                        if (_cbs[socket->id].callback) {
+                            _cbs[socket->id].callback(_cbs[socket->id].data);
+                        }
+                    }
+                }
+            }
+            _mutex.unlock();
+        }
+    }
+}
+
 
 void WINC1500Interface::winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP) {
     getInstance().dnsResolveCallback(pu8HostName, u32ServerIP);

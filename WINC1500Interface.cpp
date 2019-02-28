@@ -543,22 +543,39 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
 int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_buff_ptr, unsigned size) {
     
     //init recv fucntion one more time 
-    sint16 err = WINC_SOCKET(recv)(socket->id, input_buff_ptr, (uint16_t)size, 100);
 
-    if (err != SOCK_ERR_NO_ERROR) {
-        winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
-        return NSAPI_ERROR_DEVICE_ERROR;
-    } else {
-        winc_debug(_winc_debug, "Successfully requested recv");
+    //TODO if (!recv_req_pending) {
+    if (!_cbs[socket->id].recv_req_pending) {
+        _cbs[socket->id].recv_req_pending = true;
+        sint16 err = WINC_SOCKET(recv)(socket->id, input_buff_ptr, (uint16_t)size, 100);
 
-        uint32_t tok = _socket_data_recv.wait(WINC1500_RECV_TIMEOUT);
-        if (!tok) {
-            winc_debug(_winc_debug, "Socket recv timeout!");
-            return NSAPI_ERROR_TIMEOUT;
+        if (err != SOCK_ERR_NO_ERROR) {
+            winc_debug(_winc_debug, "Error requesting receive. err_code = %i", err);
+            return NSAPI_ERROR_DEVICE_ERROR;
         }
 
-        winc_debug(_winc_debug, "Recv semaphore released!");
-        winc_debug(_winc_debug, "Recv data size: %u", socket->received_data_size);
+        winc_debug(_winc_debug, "Successfully requested recv");
+    }
+
+    time_t seconds = time(NULL);
+    winc_debug(_winc_debug, "TIME BEFORE SEMAPHORE: %s", ctime(&seconds));
+
+    uint32_t tok = _socket_data_recv.wait(WINC1500_RECV_TIMEOUT);
+    if (!tok) {
+        winc_debug(_winc_debug, "Socket recv timeout!");
+        seconds = time(NULL);
+        winc_debug(_winc_debug, "TIME AFTER SEMAPHORE: %s", ctime(&seconds));
+        _cbs[socket->id].recv_req_pending = false;
+
+        return NSAPI_ERROR_TIMEOUT;
+    }
+    
+    seconds = time(NULL);
+    _cbs[socket->id].recv_req_pending = false;
+
+    winc_debug(_winc_debug, "Recv semaphore released!");
+    winc_debug(_winc_debug, "TIME AFTER SEMAPHORE: %s", ctime(&seconds));
+    winc_debug(_winc_debug, "Recv data size: %u", socket->received_data_size);
         // winc_debug(true, "Received data: (%.*s)", socket->received_data_size, &socket->input_buff[0]);
         // winc_debug(_winc_debug, "Here is the received data:\n");
         // if (_winc_debug) {
@@ -569,8 +586,8 @@ int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_
         //     printf("\n\n");
         // }
 
-        return socket->received_data_size; //to do: fix recv function
-    }
+    return socket->received_data_size; //to do: fix recv function
+
 }
 
 int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
@@ -583,6 +600,10 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
         _mutex.unlock();
         return NSAPI_ERROR_CONNECTION_LOST;
     }
+    socket->received_data_size = 0;
+
+    //!TODO socket_recv_in_progress[socket->id] = true;
+    _cbs[socket->id].recv_in_progress = true;
 
     for (int n = size; n; ) {
         int len = socket->circ_buff.size();
@@ -595,8 +616,19 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
         n -= len;
         if (n > 0) {
             int err = request_socket_recv(socket, socket->chunk_buff, sizeof(socket->chunk_buff));
-            if (err < 0) {
+            if (err == NSAPI_ERROR_TIMEOUT || err == 0) {
+                if (n == size) {
+                    winc_debug(_winc_debug, "Return NSAPI_ERROR_WOULD_BLOCK");
+                        _cbs[socket->id].recv_in_progress = false;
+                    return NSAPI_ERROR_WOULD_BLOCK; 
+                }
+                winc_debug(_winc_debug, "Return size - n");
+                    _cbs[socket->id].recv_in_progress = false;
+                return size - n;
+            }
+            if ((err < 0) && (err != NSAPI_ERROR_TIMEOUT)) {
                 winc_debug(_winc_debug, "Error  %i", err);
+                    _cbs[socket->id].recv_in_progress = false;
                 return err;  
             }    
         }
@@ -606,7 +638,9 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     if ((socket->circ_buff.size() > 0) && _cbs[socket->id].callback) {
         _cbs[socket->id].callback(_cbs[socket->id].data);
     }
-
+    //!TODO socket_recv_in_progress[socket->id] = false;
+    _cbs[socket->id].recv_in_progress = false;
+    socket->received_data_size = 0;
 /*
     while(socket->circ_buff.size() < size) {
         
@@ -626,6 +660,7 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
 */          
 
     return size;
+    // return len;
 }
 
 int WINC1500Interface::socket_sendto(void* handle, const SocketAddress& addr, const void* data, unsigned size) {
@@ -739,7 +774,7 @@ void WINC1500Interface::winc1500_socket_cb(SOCKET sock, uint8_t u8Msg, void* pvM
 }
 
 void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
-    winc_debug(_winc_debug, "socket_cb entry point");
+    winc_debug(false, "socket_cb entry point");
 
     tstrSocketConnectMsg* pstrConnect;
     tstrSocketRecvMsg* pstrRecvMsg;
@@ -771,7 +806,9 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
             pstrRecvMsg = (tstrSocketRecvMsg*)pvMsg;
 
-             if ((pstrRecvMsg->pu8Buffer != NULL) && (pstrRecvMsg->s16BufferSize > 0)) {
+            //!TODO socket_recv_req_pending = false;
+
+            if ((pstrRecvMsg->pu8Buffer != NULL) && (pstrRecvMsg->s16BufferSize > 0)) {
                 // CircularBuffer* buf = socket->circ_buff;
                 uint8_t* current_val = pstrRecvMsg->pu8Buffer;
 
@@ -809,7 +846,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
                 // socket->input_buff_pos += pstrRecvMsg->s16BufferSize;
                 socket->received_data_size += pstrRecvMsg->s16BufferSize;
 
-                if (pstrRecvMsg->u16RemainingSize != 0) {
+                if (pstrRecvMsg->u16RemainingSize > 0) {
                     winc_debug(_winc_debug, "Some data left [%i], waiting...", pstrRecvMsg->u16RemainingSize);
 
                     // sint16 err = WINC_SOCKET(recv)(socket->id, (void*)socket->input_buff_pos, pstrRecvMsg->s16BufferSize, 100);
@@ -819,12 +856,19 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
                 } else {
                     winc_debug(_winc_debug, "All data received!");
+                    _cbs[socket->id].recv_req_pending = false;
                     _socket_data_recv.release();
 
-                    if (_cbs[socket->id].callback) {
+                    //!TODO
+                    if (_cbs[socket->id].callback && !_cbs[socket->id].recv_in_progress){
                         _cbs[socket->id].callback(_cbs[socket->id].data);
                     }                
                 }
+            }
+            else if (pstrRecvMsg->pu8Buffer == NULL) {
+                winc_debug(_winc_debug, "RECEIVED NULL BUFFER...");
+                _cbs[socket->id].recv_req_pending = false;
+                _socket_data_recv.release();
             }
 
             break;
@@ -839,20 +883,54 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
             } else {
                 _socket_data_sent.release();
 
-                if (_cbs[socket->id].callback) {
-                    _cbs[socket->id].callback(_cbs[socket->id].data);
-                }                
+                // if (_cbs[socket->id].callback) {
+                //     _cbs[socket->id].callback(_cbs[socket->id].data);
+                // }                
             }
             
             break;
     }
 }
 
+Timeout t;
+void WINC1500Interface::call_socket_callbacks() {
+    for (int i=0; i<MAX_SOCKET; i++) {
+        if (_cbs[_socker_arr->id].callback) {
+            _cbs[_socker_arr->id].callback(_cbs[_socker_arr->id].data);
+        }
+    }
+}
+
 void WINC1500Interface::wifi_thread_cb() {
-    while (1) {
+    // t.attach(callback(&getInstance(), &WINC1500Interface::call_socket_callbacks), 2.0); 
+    int cnt = 0;
+    // t.attach(&call_socket_callbacks, 2.0); // setup timeout to call call_socket_callbacks after 2 seconds
+    while (1) { 
+        wait_ms(1);
+        if (++cnt >= 1000) {
+                cnt = 0;
+                WINC1500Interface* winc_inst = &WINC1500Interface::getInstance();
+                for (int i = 0; i < MAX_SOCKET; i++) {
+                    struct WINC1500_socket* socket = &winc_inst->_socker_arr[i];
+                    // winc_debug(winc_inst->_winc_debug, "winc_inst->_cbs[i].recv_req_pending: %i", winc_inst->_cbs[i].recv_req_pending);
+                    // winc_debug(winc_inst->_winc_debug, "socket->circ_buff.size() : %i", socket->circ_buff.size());
+                    // winc_debug(winc_inst->_winc_debug, "winc_inst->_cbs[i].recv_in_progress : %i", winc_inst->_cbs[i].recv_in_progress);
+                    if (!winc_inst->_cbs[i].recv_req_pending && (socket->circ_buff.size() == 0) && !winc_inst->_cbs[i].recv_in_progress && winc_inst->_cbs[i].callback) {
+                        
+                        winc_debug(winc_inst->_winc_debug, "Requesting receive for socket FROM wifi_thread_cb%i", i);
+                        //!TODO recv_req(); non-blocking  
+                        winc_inst->_cbs[i].recv_req_pending = true;
+                        sint16 err = WINC_SOCKET(recv)(socket->id, socket->chunk_buff, (uint16_t)sizeof(socket->chunk_buff), 100);
+                        if (err != SOCK_ERR_NO_ERROR) {
+                            winc_debug(winc_inst->_winc_debug, "Error requesting receive from wifi_thread_cb. err_code = %i", err);
+                        }
+                    }   
+                } //for
+            } // if(++cnt >= 1000)
         /* Handle pending events from network controller. */
         while (m2m_wifi_handle_events(NULL) != M2M_SUCCESS) {
             wait_ms(1);
+            
         }
     }
 }

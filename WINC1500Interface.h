@@ -30,7 +30,7 @@ extern "C" {
 #define WINC1500_DISCONNECT_TIMEOUT       1000 /* milliseconds */
 #define WINC1500_SCAN_RESULT_TIMEOUT      5000 /* milliseconds */
 #define WINC1500_SEND_TIMEOUT             5000 /* milliseconds */
-#define WINC1500_RECV_TIMEOUT            15000 /* milliseconds */
+#define WINC1500_RECV_TIMEOUT            20000 /* milliseconds */
 
 #define winc_debug(cond, ...)                                        \
     if (cond) {                                                      \
@@ -181,7 +181,9 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     struct {
         void (*callback)(void *);
         void *data;
+        bool recv_req_pending, recv_in_progress;
     } _cbs[MAX_SOCKET];
+    void call_socket_callbacks();
 
 };
 

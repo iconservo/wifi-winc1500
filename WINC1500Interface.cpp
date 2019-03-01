@@ -35,8 +35,18 @@ WINC1500Interface::WINC1500Interface() {
         switch (ret) {
             case M2M_ERR_FIRMWARE:
                 winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
+                break;
             case M2M_ERR_FAIL:
                 winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
+                break;
+            case M2M_ERR_INIT:
+                winc_debug(_winc_debug, "M2M_ERR_INIT. WINC init failed. Please, check firmware on winc1500");
+                break;
+            default:
+                char err_msg[43];
+                sprintf(err_msg, "M2M_ERROR. Opps, smth failed. ERROR is %i", ret);
+                winc_debug(_winc_debug, err_msg);
+                break;
         }
     }
 

@@ -64,10 +64,6 @@ struct WINC1500_socket {
     CircularBuffer<uint8_t, WINC1500_SOCK_RX_SIZE*2> circ_buff;
     uint8_t chunk_buff[1024];
 
-    uint8_t input_buff[WINC1500_SOCK_RX_SIZE*2];
-    uint8_t* input_buff_pos = input_buff;
-    uint8_t* read_out_pos = input_buff;
-
     uint32_t received_data_size;
     /**
      * TCP port number of HTTP.
@@ -77,6 +73,27 @@ struct WINC1500_socket {
      * A flag for the whether using the TLS socket or not.
      */
     uint8_t tls;
+
+    /* callback, callback data and two flags for polling recv and notifying mbed cloud client
+    */
+    void (*callback)(void *);
+    void *callback_data;
+    bool recv_req_pending, recv_in_progress;
+
+    //consructor 
+    WINC1500_socket() : 
+        id(0), 
+        proto(NSAPI_TCP), 
+        connected(false), 
+        addr(),
+        received_data_size(0), 
+        port(0), 
+        tls(0),
+        callback(NULL),
+        callback_data(NULL),
+        recv_req_pending(false), 
+        recv_in_progress(false) {
+    }
 };
 
 struct connection_info {
@@ -220,6 +237,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
 
     bool isInitialized();
     int winc_write_flash(const unsigned char *data, uint32 offset, unsigned int data_len, int chip_erase);
+
 };
 
 #endif

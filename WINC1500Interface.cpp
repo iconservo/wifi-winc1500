@@ -316,42 +316,30 @@ int WINC1500Interface::find_free_socket() {
 int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto, bool use_tls=false) {
     ScopedLock<Mutex> lock(_mutex);
 
-    int socket_id = find_free_socket();
-    if (socket_id == NSAPI_ERROR_NO_SOCKET) {
-        // report error no free socket
-        winc_debug(_winc_debug, "No free socket!");
-    }
-
-    struct WINC1500_socket* socket = &_socker_arr[socket_id];
-
-    if (!socket) {
-        winc_debug(_winc_debug, "pointer to socket is NULL");
-        return NSAPI_ERROR_NO_SOCKET;
-    }
-
-    socket->tls = use_tls;
-    if (!use_tls) {
-        // WINC1500 needs for HTTP connection
-        socket->tls = 0;
-        socket->port = 80;
-    } else {
-        // WINC1500 needs for HTTPS connection
-        socket->tls = 1;
-        socket->port = 443;
-    }
-
-    /* Initialize socket module. */
-    //WINC_SOCKET(socketInit)();
-    /* Register socket callback function. */
-    //WINC_SOCKET(registerSocketCallback)(winc1500_socket_cb, winc1500_dnsResolveCallback);
-
-    winc_debug(_winc_debug, "socket->tls =%i\n", (int)socket->tls);
-
-    int idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, socket->tls);
+    int idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, use_tls);
 
     if (idx >= 0) {
-        socket->id = socket_id;
+	
+        struct WINC1500_socket* socket = &_socker_arr[idx];
+
+        if (!socket) {
+            winc_debug(_winc_debug, "pointer to socket is NULL");
+            return NSAPI_ERROR_NO_SOCKET;
+        }
+        socket->id = idx;
+
         winc_debug(_winc_debug, "WINC1500Interface: socket_opened, id=%d\n", socket->id);
+
+        socket->tls = use_tls;
+        if (!use_tls) {
+            // WINC1500 needs for HTTP connection
+            socket->tls = 0;
+            socket->port = 80;
+        } else {
+            // WINC1500 needs for HTTPS connection
+            socket->tls = 1;
+            socket->port = 443;
+        }
 
         socket->addr = 0;
         socket->received_data_size = 0;
@@ -359,11 +347,11 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
         socket->connected = false;
         *handle = socket;
     }
-
-    if (idx < 0) {
+    else{
         winc_debug(_winc_debug, "socket creating failure!");
         return NSAPI_ERROR_NO_SOCKET;
-    } 
+    }  
+
     return NSAPI_ERROR_OK;
 }
 

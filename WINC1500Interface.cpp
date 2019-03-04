@@ -469,7 +469,11 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
 
     winc_debug(_winc_debug, "socket->tls =%i\n", (int)socket->tls);
 
-    int idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, socket->tls);
+        if (!socket) {
+            winc_debug(_winc_debug, "pointer to socket is NULL");
+            return NSAPI_ERROR_NO_SOCKET;
+        }
+        socket->id = idx;
 
     if (idx >= 0) {
 	
@@ -494,17 +498,28 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
 		socket->port = 443;
 	}
 
+        socket->tls = use_tls;
+        if (!use_tls) {
+            // WINC1500 needs for HTTP connection
+            socket->tls = 0;
+            socket->port = 80;
+        } else {
+            // WINC1500 needs for HTTPS connection
+            socket->tls = 1;
+            socket->port = 443;
+        }
+
         socket->addr = 0;
         socket->received_data_size = 0;
         socket->proto = proto;
         socket->connected = false;
         *handle = socket;
     }
-
-    if (idx < 0) {
+    else{
         winc_debug(_winc_debug, "socket creating failure!");
         return NSAPI_ERROR_NO_SOCKET;
-    } 
+    }  
+
     return NSAPI_ERROR_OK;
 }
 

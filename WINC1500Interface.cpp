@@ -26,7 +26,7 @@ WINC1500Interface::WINC1500Interface() {
     int8_t ret;
 
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
-    
+
     /* Initialize the BSP. */
 
     is_initialized = true;
@@ -527,8 +527,6 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
 int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_buff_ptr, unsigned size) {
     
     //init recv fucntion one more time 
-
-    //TODO if (!recv_req_pending) {
     if (!socket->recv_req_pending) {
         socket->recv_req_pending = true;
         sint16 err = WINC_SOCKET(recv)(socket->id, input_buff_ptr, (uint16_t)size, 100);
@@ -578,44 +576,33 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     socket->received_data_size = 0;
     socket->recv_in_progress = true;
 
-    for (int n = size; n; ) {
-        int len = socket->circ_buff.size();
-        if (len > n) {
-            len = n;
-        }
-        for (int i=0; i<len; i++) {
-            socket->circ_buff.pop(*ptr++);
-        }        
-        n -= len;
-        if (n > 0) {
-            int err = request_socket_recv(socket, socket->chunk_buff, sizeof(socket->chunk_buff));
-            if (err == NSAPI_ERROR_TIMEOUT || err == 0) {
-                if (n == size) {
-                    winc_debug(_winc_debug, "Return NSAPI_ERROR_WOULD_BLOCK");
-                    socket->recv_in_progress = false;
-                    return NSAPI_ERROR_WOULD_BLOCK; 
-                }
-                winc_debug(_winc_debug, "Return size - n");
-                socket->recv_in_progress = false;
-                return size - n;
-            }
-            if ((err < 0) && (err != NSAPI_ERROR_TIMEOUT)) {
-                winc_debug(_winc_debug, "Error  %i", err);
-                socket->recv_in_progress = false;
-                return err;  
-            }    
+    int n_read = socket->circ_buff.size();
+    if (n_read > size) {
+        n_read = size;
+    }
+    if (n_read < size) {
+        // send recv request async
+        sint16 err = WINC_SOCKET(recv)(socket->id, socket->chunk_buff, (uint16_t)sizeof(socket->chunk_buff), 100);
+        if (err != SOCK_ERR_NO_ERROR) {
+            winc_debug(_winc_debug, "Error requesting receive. winc_err_code = %i", err);
+            return winc1500_err_to_nsapi_err(err);
         }
     }
-    winc_debug(_winc_debug, "Return %i ( socket->circ_buff.size() = %i )", size, socket->circ_buff.size());
+    if (n_read == 0) {
+        socket->recv_in_progress = false;
+        winc_debug(_winc_debug, "Nothing to read.\n Return NSAPI_ERROR_WOULD_BLOCK");
+        return NSAPI_ERROR_WOULD_BLOCK; 
+    }
 
+    for (int i=0; i<n_read; i++) {
+        socket->circ_buff.pop(*ptr++);
+    }        
+    
     if ((socket->circ_buff.size() > 0) && socket->callback) {
         socket->callback(socket->callback_data);
     }
-
     socket->recv_in_progress = false;
-    socket->received_data_size = 0;  
-
-    return size;
+    return n_read;
 }
 
 int WINC1500Interface::socket_sendto(void* handle, const SocketAddress& addr, const void* data, unsigned size) {
@@ -796,7 +783,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
                 }
             }
             else if (pstrRecvMsg->pu8Buffer == NULL) {
-                winc_debug(_winc_debug, "RECEIVED NULL BUFFER...");
+                winc_debug(false, "RECEIVED NULL BUFFER...");
                 socket->recv_req_pending = false;
                 _socket_data_recv.release();
             }
@@ -831,7 +818,7 @@ void WINC1500Interface::wifi_thread_cb() {
                   
                     if (!socket->recv_req_pending && (socket->circ_buff.size() == 0) && !socket->recv_in_progress && socket->callback) {
                         
-                        winc_debug(winc_inst->_winc_debug, "Requesting receive for socket FROM wifi_thread_cb%i", i);
+                        winc_debug(false, "Requesting receive for socket FROM wifi_thread_cb%i", i);
                         socket->recv_req_pending = true;
                         sint16 err = WINC_SOCKET(recv)(socket->id, socket->chunk_buff, (uint16_t)sizeof(socket->chunk_buff), 100);
                         if (err != SOCK_ERR_NO_ERROR) {

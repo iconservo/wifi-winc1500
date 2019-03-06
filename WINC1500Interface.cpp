@@ -1,10 +1,6 @@
 #include "WINC1500Interface.h"
 #include "TCPSocket.h"
 #include "ScopedLock.h"
-#include "sockets.h"
-#include "ip4_addr.h"
-
-#define inet_pton(af,src,dst)   ip4addr_aton((src),(ip4_addr_t*)(dst))
 
 #define BYTE_SWAP(num) ((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000);
 

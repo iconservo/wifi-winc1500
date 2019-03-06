@@ -100,7 +100,6 @@ int WINC1500Interface::chip_init(void) {
                 mac_buffer[0], mac_buffer[1], mac_buffer[2], mac_buffer[3], mac_buffer[4], mac_buffer[5]);
         m2m_wifi_set_mac_address(mac_buffer);
     }
-    winc_debug(_winc_debug, "Starting winc..");
 
     /* Initialize socket module. */
     WINC_SOCKET(socketInit)();

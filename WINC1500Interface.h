@@ -6,12 +6,16 @@
 #include "mbed.h"
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
 #include "platform/CircularBuffer.h"
+#include "sv-nvstore.h"
 
 extern "C" {
 #include "m2m_wifi.h"
 #include "m2m_hif.h"
 #include "m2m_types.h"
 #include "winc1500_socket.h"
+#include "driver/source/nmasic.h"
+#include "driver/source/nmspi.h"
+#include "driver/source/nmbus.h"
 }
 
 #ifndef MAX_NUM_APs
@@ -25,12 +29,14 @@ extern "C" {
 #define SSID_LEN 6
 
 // Various timeouts for different WINC1500 operations
-#define WINC1500_CONNECT_TIMEOUT         15000 /* milliseconds */
-#define WINC1500_DNS_RESOLVE_TIMEOUT      1000 /* milliseconds */
-#define WINC1500_DISCONNECT_TIMEOUT       1000 /* milliseconds */
-#define WINC1500_SCAN_RESULT_TIMEOUT      5000 /* milliseconds */
-#define WINC1500_SEND_TIMEOUT             5000 /* milliseconds */
-#define WINC1500_RECV_TIMEOUT            20000 /* milliseconds */
+#define WINC1500_CONNECT_TIMEOUT 15000    /* milliseconds */
+#define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
+#define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
+#define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
+#define WINC1500_SEND_TIMEOUT 5000        /* milliseconds */
+#define WINC1500_RECV_TIMEOUT 20000        /* milliseconds */
+
+#define WINC1500_MAX_MAJOR_VERSION 30
 
 #define winc_debug(cond, ...)                                        \
     if (cond) {                                                      \
@@ -40,6 +46,12 @@ extern "C" {
     }
 
 #define IPV4_BYTE(val, index) ((val >> (index * 8)) & 0xFF)
+
+// macro for printing error messages
+#define CASE_ENUM_ENTITY_STR_RETURN(mnemonic) \
+    case mnemonic: {                          \
+        return #mnemonic;                     \
+    }
 
 struct WINC1500_socket {
     int id;
@@ -89,9 +101,25 @@ struct connection_info {
     sint8 rssi;
 };
 
+struct ap_connection_info {
+    char ap_SSID[M2M_MAX_SSID_LEN];
+	/*!< AP connection SSID name  */
+	uint8_t	sec_type;
+	/*!< Security type */
+	uint8_t	ip_addr[4];
+	/*!< Connection IP address */
+	uint8_t	mac_addr[6];
+	/*!< MAC address of the peer Wi-Fi station */ 
+	int	rssi;
+	/*!< Connection RSSI signal */
+	uint8_t	current_channel; 
+	/*!< Wi-Fi RF channel number  1,2,... 14.  */
+};
+
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
    public:
     virtual int connect();
+    static WINC1500Interface& getInstance(SVNVStore* nvstore);
     static WINC1500Interface& getInstance();
     virtual int connect(const char* ssid,
                         const char* pass,
@@ -108,9 +136,12 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual const char* get_gateway();
     virtual const char* get_netmask();
     virtual int8_t get_rssi();
+    virtual int8_t get_channel();
     virtual int scan(WiFiAccessPoint* res, unsigned count);
     const char* get_otp_mac_address();
     int set_mac_address(const uint8* mac_address);
+    int chip_init(void);
+    void iface_disable(void);
 
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
@@ -147,6 +178,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     WINC1500_socket* _socket_obj[MAX_SOCKET];  // store addresses of socket handles
     struct WINC1500_socket _socker_arr[MAX_SOCKET];
     struct connection_info _ip_config;
+    struct ap_connection_info _ap_config;
 
     bool _winc_debug;
     bool is_initialized;
@@ -169,13 +201,14 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     struct sockaddr_in _current_sock_addr;
 
     uint16_t _received_data_size;
+    static SVNVStore* _nvstore;
 
     union {
         uint32_t p32ip_addr;
         uint8_t p8ip_addr[NSAPI_IPv4_BYTES];
     } _resolved_DNS_addr;
 
-    WINC1500Interface();
+    WINC1500Interface(SVNVStore* nvstore);
     WINC1500Interface(WINC1500Interface const&);  // Don't Implement.
     void operator=(WINC1500Interface const&);     // Don't implement
 

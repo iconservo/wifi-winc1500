@@ -8,11 +8,14 @@
 
 #define BYTE_SWAP(num) ((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000);
 
+#define BYTE_SWAP(num) ((num>>24)&0xff) | ((num<<8)&0xff0000) | ((num>>8)&0xff00) | ((num<<24)&0xff000000);
+
 uint8_t WINC1500Interface::_scan_request_index;
 /** Number of APs found. */
 uint8_t WINC1500Interface::_num_found_ap;
 
 nsapi_wifi_ap_t WINC1500Interface::_found_ap_list[MAX_NUM_APs];
+SVNVStore* WINC1500Interface::_nvstore;
 
 const char* ip_to_str(const uint32* ip_addr, char* buf, int len) {
     uint8* p8ip = (uint8*)ip_addr;
@@ -20,50 +23,83 @@ const char* ip_to_str(const uint32* ip_addr, char* buf, int len) {
     return buf;
 }
 
-WINC1500Interface::WINC1500Interface() {
+WINC1500Interface::WINC1500Interface(SVNVStore* nvstore) {
     // init sequence
-    tstrWifiInitParam param;
-    int8_t ret;
-
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
-
-    /* Initialize the BSP. */
-
-    is_initialized = true;
-
-    nm_bsp_init();
-
-    /* Initialize Wi-Fi driver with data and status callbacks. */
-    param.pfAppWifiCb = winc1500_wifi_cb;
-    ret = m2m_wifi_init(&param);
-    if (M2M_SUCCESS != ret) {
-        is_initialized = false;
-        switch (ret) {
-            case M2M_ERR_FIRMWARE:
-                winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
-            case M2M_ERR_FAIL:
-                winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
-        }
-    }
-
+    _nvstore = nvstore;
+    chip_init();
     winc_debug(_winc_debug, "Starting winc..");
-
-    /* Initialize socket module. */
-    WINC_SOCKET(socketInit)();
-    /* Register socket callback function. */
-    WINC_SOCKET(registerSocketCallback)(winc1500_socket_cb, winc1500_dnsResolveCallback);
-
-    _wifi_thread.start(callback(wifi_thread_cb));
 }
 
-WINC1500Interface& WINC1500Interface::getInstance() {
-    static WINC1500Interface instance;
+WINC1500Interface& WINC1500Interface::getInstance(SVNVStore* nvstore) {
+    static WINC1500Interface instance(nvstore);
 
     return instance;
 }
 
+WINC1500Interface& WINC1500Interface::getInstance() {
+
+    return WINC1500Interface::getInstance(_nvstore);
+}
+
 bool WINC1500Interface::isInitialized() {
     return is_initialized;
+}
+
+void WINC1500Interface::iface_disable(void) {
+    m2m_wifi_deinit(NULL);
+    nm_bsp_deinit();
+    is_initialized = false;
+}
+
+int WINC1500Interface::chip_init(void) {
+    tstrWifiInitParam param;
+    int8_t ret;
+    uint8 mac_buffer[6];
+
+    /* Initialize the BSP. */
+    is_initialized = true;
+    nm_bsp_init();
+    nm_drv_init_hold();
+    uint8 u8Mode = M2M_WIFI_MODE_NORMAL;
+    ret = wait_for_bootrom(u8Mode);
+    if (M2M_SUCCESS != ret) {
+        winc_debug(_winc_debug, "Error initialize bootrom \r\n");
+    }
+    wait(0.2);
+    tstrM2mRev firm_info;
+    nm_get_firmware_info(&firm_info);
+    winc_debug(_winc_debug, "WINC firmware version: %d.%d.%d\r\n",
+            firm_info.u8FirmwareMajor, firm_info.u8FirmwareMinor, firm_info.u8FirmwarePatch);
+    uint16_t firm_version = M2M_MAKE_VERSION(firm_info.u8FirmwareMajor, firm_info.u8FirmwareMinor, firm_info.u8FirmwarePatch);
+    uint16_t min_req_version = M2M_MAKE_VERSION(M2M_MIN_REQ_DRV_VERSION_MAJOR_NO, M2M_MIN_REQ_DRV_VERSION_MINOR_NO, M2M_MIN_REQ_DRV_VERSION_PATCH_NO);
+    if ((firm_info.u8FirmwareMajor > WINC1500_MAX_MAJOR_VERSION) || (firm_version < min_req_version)) {
+        winc_debug(_winc_debug, "WINC1500 FIRMWARE ERROR. Please, update firmware for winc1500");
+        nm_bus_iface_deinit();
+        nm_spi_deinit();
+    } else {
+        /* Initialize Wi-Fi driver with data and status callbacks. */
+        param.pfAppWifiCb = winc1500_wifi_cb;
+        ret = m2m_wifi_init(&param);
+        if (M2M_SUCCESS != ret) {
+            is_initialized = false;
+            switch (ret) {
+                case M2M_ERR_FIRMWARE:
+                    winc_debug(_winc_debug, "M2M_ERR_FIRMWARE. Please, update firmware on winc1500");
+                case M2M_ERR_FAIL:
+                    winc_debug(_winc_debug, "M2M_ERR_FAIL. Opps, smth failed..");
+            }
+        }
+    }
+    if(_nvstore) {
+        _nvstore->nv_store_get_mac(mac_buffer, 6);
+        winc_debug(_winc_debug, "MAC address obtained: %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+                mac_buffer[0], mac_buffer[1], mac_buffer[2], mac_buffer[3], mac_buffer[4], mac_buffer[5]);
+        m2m_wifi_set_mac_address(mac_buffer);
+    }
+    _wifi_thread.start(callback(wifi_thread_cb));
+
+    return ret;
 }
 
 int WINC1500Interface::connect(const char* ssid, const char* pass, nsapi_security_t security, uint8_t channel) {
@@ -139,10 +175,7 @@ nsapi_error_t WINC1500Interface::gethostbyname(const char* name, SocketAddress* 
 
     char ip32_addr[NSAPI_IP_SIZE];
     ip_to_str(&_resolved_DNS_addr.p32ip_addr, ip32_addr, sizeof(ip32_addr));
-    // *ip32_addr = ip_to_str(&_resolved_DNS_addr.p32ip_addr, output_buffer, sizeof(output_buffer));
-
     winc_debug(_winc_debug, "IP address is: %s", ip32_addr);
-
     address->set_ip_address(ip32_addr);
 
     return NSAPI_ERROR_OK;
@@ -199,6 +232,10 @@ int WINC1500Interface::disconnect() {
     return NSAPI_ERROR_OK;
 }
 
+int8_t WINC1500Interface::get_channel() {
+    return _ap_config.current_channel;
+}
+
 const char* WINC1500Interface::get_ip_address() {
     return ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer));
 }
@@ -224,6 +261,10 @@ const char* WINC1500Interface::get_otp_mac_address() {
 int WINC1500Interface::set_mac_address(const uint8* mac_address) {
     uint8 mac_buffer[6];
     memcpy(mac_buffer, mac_address, 6);
+    int rc = _nvstore->nv_store_set_mac(mac_buffer, sizeof(mac_buffer));
+    if (rc) {
+        winc_debug(_winc_debug, "Can't write MAC to nv-store res: %d \r\n", rc);
+    }
     return m2m_wifi_set_mac_address(mac_buffer);
 }
 
@@ -407,10 +448,21 @@ int winc1500_err_to_nsapi_err(int err) {
     }
 }
 
+const char* sec_type_2str(uint8 sec_type) {
+    switch (sec_type) {
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_INVALID)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_OPEN)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_WPA_PSK)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_WEP)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_SEC_802_1X)
+        CASE_ENUM_ENTITY_STR_RETURN(M2M_WIFI_NUM_AUTH_TYPES)
+    }
+    return "unknown security type";
+}
+
 /* Convert the character string in "ip" into an unsigned integer.
 
    This assumes that an unsigned integer contains at least 32 bits. */
-
 uint32_t ip_to_int (const char * ip)
 {
     /* The return value. */
@@ -458,16 +510,14 @@ int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     winc_debug(_winc_debug, "Socket_connect");
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
-
     struct sockaddr_in _current_sock;
 
     _current_sock.sin_family = AF_INET;
     _current_sock.sin_port = _htons(addr.get_port());
-    
+
     uint32_t got_addr = BYTE_SWAP(ip_to_int(addr.get_ip_address()));
     winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", got_addr);
     _current_sock.sin_addr.s_addr = got_addr;
-
 
     winc_debug(_winc_debug, "Socket id: %x\n", socket->id);
     winc_debug(_winc_debug, "Got address: %s\n", addr.get_ip_address());
@@ -644,7 +694,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             memcpy(&_found_ap_list[_scan_request_index], &pstrScanResult, sizeof(tstrM2mWifiscanResult));
 
             /* display found AP. */
-            printf("[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
+            printf_all("[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
 
             strncpy(_found_ap_list[_scan_request_index].ssid, (const char*)pstrScanResult->au8SSID, 33);
             _found_ap_list[_scan_request_index].rssi = pstrScanResult->s8rssi;
@@ -695,8 +745,10 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             _ip_config.u32IP = pIPAddress->u32StaticIP;
             _ip_config.u32Gateway = pIPAddress->u32Gateway;
             _ip_config.u32SubnetMask = pIPAddress->u32SubnetMask;
-            printf("Wi-Fi connected\r\n");
-            printf("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
+            printf_all("Wi-Fi connected\r\n");
+            printf_all("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
+
+            m2m_wifi_get_connection_info();
 
             // release the connection semaphore
             _connected.release();
@@ -707,7 +759,28 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             sint8* ptrssi = (sint8*)pvMsg;
             _ip_config.rssi = *ptrssi;
             _rssi_request.release();
+            break;
         }
+        case M2M_WIFI_RESP_CONN_INFO:
+		{
+			tstrM2MConnInfo		*pstrConnInfo = (tstrM2MConnInfo*)pvMsg;
+				
+			printf_all("CONNECTED AP INFO\n");
+			printf_all("SSID : %s\n",pstrConnInfo->acSSID);
+			printf_all("SEC TYPE : %s\n",sec_type_2str(pstrConnInfo->u8SecType));
+			printf_all("Signal Strength	: %d\n", pstrConnInfo->s8RSSI); 
+			printf_all("Local IP Address : %d.%d.%d.%d\n", 
+			pstrConnInfo->au8IPAddr[0] , pstrConnInfo->au8IPAddr[1], pstrConnInfo->au8IPAddr[2], pstrConnInfo->au8IPAddr[3]);
+            printf_all("Current WiFi Channel: %d\n", pstrConnInfo->u8CurrChannel); 
+
+            _ap_config.sec_type = pstrConnInfo->u8SecType;
+            _ap_config.rssi = pstrConnInfo->s8RSSI;
+            _ap_config.current_channel = pstrConnInfo->u8CurrChannel;
+            memcpy(_ap_config.ap_SSID, pstrConnInfo->acSSID, sizeof(pstrConnInfo->acSSID));
+            memcpy(_ap_config.ip_addr, pstrConnInfo->au8IPAddr, sizeof(pstrConnInfo->au8IPAddr));
+            memcpy(_ap_config.mac_addr, pstrConnInfo->au8MACAddress, sizeof(pstrConnInfo->au8MACAddress));
+            break;
+		}
     }
 }
 

@@ -93,6 +93,12 @@ int WINC1500Interface::chip_init(void) {
                 mac_buffer[0], mac_buffer[1], mac_buffer[2], mac_buffer[3], mac_buffer[4], mac_buffer[5]);
         m2m_wifi_set_mac_address(mac_buffer);
     }
+
+    /* Initialize socket module. */
+    WINC_SOCKET(socketInit)();
+    /* Register socket callback function. */
+    WINC_SOCKET(registerSocketCallback)(winc1500_socket_cb, winc1500_dnsResolveCallback);
+
     _wifi_thread.start(callback(wifi_thread_cb));
 
     return ret;

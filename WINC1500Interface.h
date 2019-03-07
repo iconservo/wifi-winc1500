@@ -28,6 +28,9 @@ extern "C" {
 
 #define SSID_LEN 6
 
+#undef MAX_SOCKET
+#define MAX_SOCKET 3
+
 // Various timeouts for different WINC1500 operations
 #define WINC1500_CONNECT_TIMEOUT 15000    /* milliseconds */
 #define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
@@ -57,6 +60,7 @@ struct WINC1500_socket {
     int id;
     nsapi_protocol_t proto;
     bool connected;
+    bool opened;
     SocketAddress addr;
     //cirlular buffer
     CircularBuffer<uint8_t, WINC1500_SOCK_RX_SIZE*2> circ_buff;
@@ -159,6 +163,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual int socket_open_tls(void** handle, nsapi_protocol_t proto, unsigned use_tls);
     virtual int socket_open_private(void** handle, nsapi_protocol_t proto, bool use_tls);
     virtual int find_free_socket();
+    virtual WINC1500_socket* get_socket_by_id(int socket_id);
 
     virtual NetworkStack* get_stack() { return this; }
 
@@ -174,8 +179,6 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     Mutex _mutex;
     Semaphore _socket_connected, _socket_dns_resolved, _socket_data_sent, _socket_data_recv;
 
-    bool _ids[MAX_SOCKET];
-    WINC1500_socket* _socket_obj[MAX_SOCKET];  // store addresses of socket handles
     struct WINC1500_socket _socker_arr[MAX_SOCKET];
     struct connection_info _ip_config;
     struct ap_connection_info _ap_config;

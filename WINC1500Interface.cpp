@@ -816,7 +816,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             memcpy(&_found_ap_list[_scan_request_index], &pstrScanResult, sizeof(tstrM2mWifiscanResult));
 
             /* display found AP. */
-            printf_all("[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
+            CONF_WINC_PRINTF("[%d] SSID:%s\r\n", _scan_request_index, pstrScanResult->au8SSID);
 
             strncpy(_found_ap_list[_scan_request_index].ssid, (const char*)pstrScanResult->au8SSID, 33);
             _found_ap_list[_scan_request_index].rssi = pstrScanResult->s8rssi;
@@ -867,8 +867,8 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
             _ip_config.u32IP = pIPAddress->u32StaticIP;
             _ip_config.u32Gateway = pIPAddress->u32Gateway;
             _ip_config.u32SubnetMask = pIPAddress->u32SubnetMask;
-            printf_all("Wi-Fi connected\r\n");
-            printf_all("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
+            CONF_WINC_PRINTF("Wi-Fi connected\r\n");
+            CONF_WINC_PRINTF("Wi-Fi IP is %s\r\n", ip_to_str(&_ip_config.u32IP, output_buffer, sizeof(output_buffer)));
 
             m2m_wifi_get_connection_info();
 
@@ -887,13 +887,13 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
 		{
 			tstrM2MConnInfo		*pstrConnInfo = (tstrM2MConnInfo*)pvMsg;
 				
-			printf_all("CONNECTED AP INFO\n");
-			printf_all("SSID : %s\n",pstrConnInfo->acSSID);
-			printf_all("SEC TYPE : %s\n",sec_type_2str(pstrConnInfo->u8SecType));
-			printf_all("Signal Strength	: %d\n", pstrConnInfo->s8RSSI); 
-			printf_all("Local IP Address : %d.%d.%d.%d\n", 
+			CONF_WINC_PRINTF("CONNECTED AP INFO\n");
+			CONF_WINC_PRINTF("SSID : %s\n",pstrConnInfo->acSSID);
+			CONF_WINC_PRINTF("SEC TYPE : %s\n",sec_type_2str(pstrConnInfo->u8SecType));
+			CONF_WINC_PRINTF("Signal Strength	: %d\n", pstrConnInfo->s8RSSI); 
+			CONF_WINC_PRINTF("Local IP Address : %d.%d.%d.%d\n", 
 			pstrConnInfo->au8IPAddr[0] , pstrConnInfo->au8IPAddr[1], pstrConnInfo->au8IPAddr[2], pstrConnInfo->au8IPAddr[3]);
-            printf_all("Current WiFi Channel: %d\n", pstrConnInfo->u8CurrChannel); 
+            CONF_WINC_PRINTF("Current WiFi Channel: %d\n", pstrConnInfo->u8CurrChannel); 
 
             _ap_config.sec_type = pstrConnInfo->u8SecType;
             _ap_config.rssi = pstrConnInfo->s8RSSI;
@@ -1057,7 +1057,11 @@ void WINC1500Interface::dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerI
 #if MBED_WINC1500_PROVIDE_DEFAULT
 
 WiFiInterface *WiFiInterface::get_default_instance() {
+    
+    // WINC1500Interface* wifi_winc = &WINC1500Interface::getInstance();
+    // wifi_winc->chip_init();
 
     return &WINC1500Interface::getInstance();
+
 }
 #endif

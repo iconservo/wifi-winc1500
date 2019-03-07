@@ -45,11 +45,6 @@ int WINC1500Interface::chip_init(uint8_t* mac_buffer) {
     tstrWifiInitParam param;
     int8_t ret;
 
-    for (int i = 0; i < MAX_SOCKET; i++) {
-        _cbs[i].callback = NULL;
-    }
-
-
     _winc_debug = _winc_debug || MBED_WINC1500_ENABLE_DEBUG;
 
     /* Initialize the BSP. */
@@ -633,16 +628,6 @@ int WINC1500Interface::socket_connect(void* handle, const SocketAddress& addr) {
     winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", got_addr);
     _current_sock.sin_addr.s_addr = got_addr;
 
-    struct sockaddr_in _current_sock;
-
-    _current_sock.sin_family = AF_INET;
-    _current_sock.sin_port = _htons(addr.get_port());
-    
-    uint32_t got_addr = BYTE_SWAP(ip_to_int(addr.get_ip_address()));
-    winc_debug(_winc_debug, "WINC1500_IP address bytes: %x\n", got_addr);
-    _current_sock.sin_addr.s_addr = got_addr;
-
-
     winc_debug(_winc_debug, "Socket id: %x\n", socket->id);
     winc_debug(_winc_debug, "Got address: %s\n", addr.get_ip_address());
     winc_debug(_winc_debug, "Got port: %u\n", addr.get_port());
@@ -1058,8 +1043,8 @@ void WINC1500Interface::dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerI
 
 WiFiInterface *WiFiInterface::get_default_instance() {
     
-    // WINC1500Interface* wifi_winc = &WINC1500Interface::getInstance();
-    // wifi_winc->chip_init();
+    WINC1500Interface* wifi_winc = &WINC1500Interface::getInstance();
+    wifi_winc->chip_init();
 
     return &WINC1500Interface::getInstance();
 

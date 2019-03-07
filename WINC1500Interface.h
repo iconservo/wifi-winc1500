@@ -152,7 +152,6 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc_chip_erase(void);
     int winc_write_ota(const unsigned char *data, unsigned int data_len);
     int winc_switch_part(void);
-    int chip_init(void);
     int chip_init(uint8_t* mac_buffer = NULL);
     void iface_disable(void);
 

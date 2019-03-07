@@ -125,7 +125,6 @@ struct ap_connection_info {
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
    public:
     virtual int connect();
-    static WINC1500Interface& getInstance(SVNVStore* nvstore);
     static WINC1500Interface& getInstance();
     virtual int connect(const char* ssid,
                         const char* pass,
@@ -154,6 +153,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc_write_ota(const unsigned char *data, unsigned int data_len);
     int winc_switch_part(void);
     int chip_init(void);
+    int chip_init(uint8_t* mac_buffer = NULL);
     void iface_disable(void);
 
    protected:
@@ -213,7 +213,6 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     struct sockaddr_in _current_sock_addr;
 
     uint16_t _received_data_size;
-    static SVNVStore* _nvstore;
 
     union {
         uint32_t p32ip_addr;

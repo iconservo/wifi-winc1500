@@ -5,6 +5,7 @@
 
 #include "mbed.h"
 #include "wifi-winc1500/mbed_bsp/bsp_mbed.h"
+#include "platform/CircularBuffer.h"
 
 extern "C" {
 #include "m2m_wifi.h"
@@ -14,6 +15,9 @@ extern "C" {
 #include "spi_flash.h"
 #include "spi_flash_map.h"
 #include "m2m_ota.h"
+#include "driver/source/nmasic.h"
+#include "driver/source/nmspi.h"
+#include "driver/source/nmbus.h"
 }
 
 #ifndef MAX_NUM_APs
@@ -21,18 +25,23 @@ extern "C" {
 #endif
 
 #ifndef WINC1500_SOCK_RX_SIZE
-#define WINC1500_SOCK_RX_SIZE 1500
+#define WINC1500_SOCK_RX_SIZE SOCKET_BUFFER_MAX_LENGTH
 #endif
 
 #define SSID_LEN 6
 
+#undef MAX_SOCKET
+#define MAX_SOCKET 3
+
 // Various timeouts for different WINC1500 operations
-#define WINC1500_CONNECT_TIMEOUT 10000    /* milliseconds */
+#define WINC1500_CONNECT_TIMEOUT 15000    /* milliseconds */
 #define WINC1500_DNS_RESOLVE_TIMEOUT 1000 /* milliseconds */
 #define WINC1500_DISCONNECT_TIMEOUT 1000  /* milliseconds */
 #define WINC1500_SCAN_RESULT_TIMEOUT 5000 /* milliseconds */
-#define WINC1500_SEND_TIMEOUT 2000        /* milliseconds */
-#define WINC1500_RECV_TIMEOUT 3000        /* milliseconds */
+#define WINC1500_SEND_TIMEOUT 5000        /* milliseconds */
+#define WINC1500_RECV_TIMEOUT 10000        /* milliseconds */
+
+#define WINC1500_MAX_MAJOR_VERSION 30
 
 #define winc_debug(cond, ...)                                        \
     if (cond) {                                                      \
@@ -43,12 +52,23 @@ extern "C" {
 
 #define IPV4_BYTE(val, index) ((val >> (index * 8)) & 0xFF)
 
+// macro for printing error messages
+#define CASE_ENUM_ENTITY_STR_RETURN(mnemonic) \
+    case mnemonic: {                          \
+        return #mnemonic;                     \
+    }
+
 struct WINC1500_socket {
     int id;
     nsapi_protocol_t proto;
     bool connected;
+    bool opened;
     SocketAddress addr;
-    uint32_t read_data_size;
+    //cirlular buffer
+    CircularBuffer<uint8_t, WINC1500_SOCK_RX_SIZE*2> circ_buff;
+    uint8_t chunk_buff[1024];
+
+    uint32_t received_data_size;
     /**
      * TCP port number of HTTP.
      */
@@ -57,6 +77,27 @@ struct WINC1500_socket {
      * A flag for the whether using the TLS socket or not.
      */
     uint8_t tls;
+
+    /* callback, callback data and two flags for polling recv and notifying mbed cloud client
+    */
+    void (*callback)(void *);
+    void *callback_data;
+    bool recv_req_pending, recv_in_progress;
+
+    //consructor 
+    WINC1500_socket() : 
+        id(0), 
+        proto(NSAPI_TCP), 
+        connected(false), 
+        addr(),
+        received_data_size(0), 
+        port(0), 
+        tls(0),
+        callback(NULL),
+        callback_data(NULL),
+        recv_req_pending(false), 
+        recv_in_progress(false) {
+    }
 };
 
 struct connection_info {
@@ -64,6 +105,21 @@ struct connection_info {
     uint32 u32Gateway;
     uint32 u32SubnetMask;
     sint8 rssi;
+};
+
+struct ap_connection_info {
+    char ap_SSID[M2M_MAX_SSID_LEN];
+	/*!< AP connection SSID name  */
+	uint8_t	sec_type;
+	/*!< Security type */
+	uint8_t	ip_addr[4];
+	/*!< Connection IP address */
+	uint8_t	mac_addr[6];
+	/*!< MAC address of the peer Wi-Fi station */ 
+	int	rssi;
+	/*!< Connection RSSI signal */
+	uint8_t	current_channel; 
+	/*!< Wi-Fi RF channel number  1,2,... 14.  */
 };
 
 class WINC1500Interface : public NetworkStack, public WiFiInterface {
@@ -85,6 +141,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual const char* get_gateway();
     virtual const char* get_netmask();
     virtual int8_t get_rssi();
+    virtual int8_t get_channel();
     virtual int scan(WiFiAccessPoint* res, unsigned count);
     const char* get_otp_mac_address();
     int set_mac_address(const uint8* mac_address);
@@ -95,6 +152,9 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     int winc_chip_erase(void);
     int winc_write_ota(const unsigned char *data, unsigned int data_len);
     int winc_switch_part(void);
+    int chip_init(uint8_t* mac_buffer = NULL);
+    void iface_disable(void);
+
    protected:
     virtual int socket_open(void** handle, nsapi_protocol_t proto);
     virtual int socket_close(void* handle);
@@ -111,6 +171,7 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     virtual int socket_open_tls(void** handle, nsapi_protocol_t proto, unsigned use_tls);
     virtual int socket_open_private(void** handle, nsapi_protocol_t proto, bool use_tls);
     virtual int find_free_socket();
+    virtual WINC1500_socket* get_socket_by_id(int socket_id);
 
     virtual NetworkStack* get_stack() { return this; }
 
@@ -126,10 +187,9 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     Mutex _mutex;
     Semaphore _socket_connected, _socket_dns_resolved, _socket_data_sent, _socket_data_recv;
 
-    bool _ids[MAX_SOCKET];
-    WINC1500_socket* _socket_obj[MAX_SOCKET];  // store addresses of socket handles
-    struct WINC1500_socket _socker_arr[MAX_SOCKET] = {0};
+    struct WINC1500_socket _socker_arr[MAX_SOCKET];
     struct connection_info _ip_config;
+    struct ap_connection_info _ap_config;
 
     bool _winc_debug;
     bool is_initialized;
@@ -144,14 +204,19 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     static nsapi_wifi_ap_t _found_ap_list[MAX_NUM_APs];
 
     char _ap_ssid[33]; /* 32 is what 802.11 defines as longest possible name; +1 for the \0 */
-    tenuM2mSecType _ap_sec;
-    uint8_t _ap_ch;
+    tenuM2mSecType _ap_sec = M2M_WIFI_SEC_WPA_PSK;
+    uint8_t _ap_ch = M2M_WIFI_CH_ALL;
     char _ap_pass[64]; /* The longest allowed passphrase */
 
     // todo:fix me: add this field to Winc1500 socket array
     struct sockaddr_in _current_sock_addr;
 
     uint16_t _received_data_size;
+
+    union {
+        uint32_t p32ip_addr;
+        uint8_t p8ip_addr[NSAPI_IPv4_BYTES];
+    } _resolved_DNS_addr;
 
     WINC1500Interface();
     WINC1500Interface(WINC1500Interface const&);  // Don't Implement.
@@ -169,8 +234,11 @@ class WINC1500Interface : public NetworkStack, public WiFiInterface {
     void dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
     static void winc1500_dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerIP);
 
+    int request_socket_recv(WINC1500_socket* socket, void* input_buff_ptr, unsigned size);
+
     bool isInitialized();
     int winc_write_flash(const unsigned char *data, uint32 offset, unsigned int data_len, int chip_erase);
+
 };
 
 #endif

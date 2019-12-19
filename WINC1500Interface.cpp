@@ -1,3 +1,22 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+ 
 #include "WINC1500Interface.h"
 #include "TCPSocket.h"
 #include "ScopedLock.h"
@@ -461,7 +480,7 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
         int winc_idx = WINC_SOCKET(socket)(AF_INET, SOCK_STREAM, use_tls);
 
         if (winc_idx >= 0) {
-        
+
             struct WINC1500_socket* socket = &_socker_arr[free_socket_num];
 
             if (!socket) {
@@ -493,11 +512,11 @@ int WINC1500Interface::socket_open_private(void** handle, nsapi_protocol_t proto
         else{
             winc_debug(_winc_debug, "socket creating failure!");
             return NSAPI_ERROR_NO_SOCKET;
-        }  
+        }
 
     return NSAPI_ERROR_OK;
     }
-    
+
     winc_debug(_winc_debug, "No available socket!..");
     return NSAPI_ERROR_NO_SOCKET;
 }
@@ -659,7 +678,7 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
     ScopedLock<Mutex> lock(_mutex);
 
     struct WINC1500_socket* socket = (struct WINC1500_socket*)handle;
-    
+
     winc_debug(_winc_debug, "socket ID: %i, %i bytes to send", socket->id, size);
 
     // send data
@@ -682,8 +701,8 @@ int WINC1500Interface::socket_send(void* handle, const void* data, unsigned size
 }
 
 int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_buff_ptr, unsigned size) {
-    
-    //init recv fucntion one more time 
+
+    //init recv fucntion one more time
     if (!socket->recv_req_pending) {
         socket->recv_req_pending = true;
         sint16 err = WINC_SOCKET(recv)(socket->id, input_buff_ptr, (uint16_t)size, 100);
@@ -708,7 +727,7 @@ int WINC1500Interface::request_socket_recv(WINC1500_socket* socket, void* input_
 
         return NSAPI_ERROR_TIMEOUT;
     }
-    
+
     seconds = time(NULL);
     socket->recv_req_pending = false;
 
@@ -748,13 +767,13 @@ int WINC1500Interface::socket_recv(void* handle, void* data, unsigned size) {
     if (n_read == 0) {
         socket->recv_in_progress = false;
         winc_debug(_winc_debug, "Nothing to read.\n Return NSAPI_ERROR_WOULD_BLOCK");
-        return NSAPI_ERROR_WOULD_BLOCK; 
+        return NSAPI_ERROR_WOULD_BLOCK;
     }
 
     for (int i=0; i<n_read; i++) {
         socket->circ_buff.pop(*ptr++);
-    }        
-    
+    }
+
     if ((socket->circ_buff.size() > 0) && socket->callback) {
         socket->callback(socket->callback_data);
     }
@@ -774,7 +793,7 @@ void WINC1500Interface::socket_attach(void* handle, void (*cb)(void*), void* dat
     struct WINC1500_socket *socket = (struct WINC1500_socket *)handle;
     winc_debug(_winc_debug, "socket id %i", socket->id);
     socket->callback = cb;
-    socket->callback_data = data;    
+    socket->callback_data = data;
 }
 
 void WINC1500Interface::winc1500_wifi_cb(uint8_t u8MsgType, void* pvMsg) {
@@ -822,7 +841,7 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
                 _got_scan_result.release();
             }
 
-            break; 
+            break;
         }
 
         case M2M_WIFI_RESP_CON_STATE_CHANGED: {
@@ -871,14 +890,14 @@ void WINC1500Interface::wifi_cb(uint8_t u8MsgType, void* pvMsg) {
         case M2M_WIFI_RESP_CONN_INFO:
 		{
 			tstrM2MConnInfo		*pstrConnInfo = (tstrM2MConnInfo*)pvMsg;
-				
+
 			CONF_WINC_PRINTF("CONNECTED AP INFO\n");
 			CONF_WINC_PRINTF("SSID : %s\n",pstrConnInfo->acSSID);
 			CONF_WINC_PRINTF("SEC TYPE : %s\n",sec_type_2str(pstrConnInfo->u8SecType));
-			CONF_WINC_PRINTF("Signal Strength	: %d\n", pstrConnInfo->s8RSSI); 
-			CONF_WINC_PRINTF("Local IP Address : %d.%d.%d.%d\n", 
+			CONF_WINC_PRINTF("Signal Strength	: %d\n", pstrConnInfo->s8RSSI);
+			CONF_WINC_PRINTF("Local IP Address : %d.%d.%d.%d\n",
 			pstrConnInfo->au8IPAddr[0] , pstrConnInfo->au8IPAddr[1], pstrConnInfo->au8IPAddr[2], pstrConnInfo->au8IPAddr[3]);
-            CONF_WINC_PRINTF("Current WiFi Channel: %d\n", pstrConnInfo->u8CurrChannel); 
+            CONF_WINC_PRINTF("Current WiFi Channel: %d\n", pstrConnInfo->u8CurrChannel);
 
             _ap_config.sec_type = pstrConnInfo->u8SecType;
             _ap_config.rssi = pstrConnInfo->s8RSSI;
@@ -908,7 +927,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
             case SOCKET_MSG_CONNECT:
 
                 pstrConnect = (tstrSocketConnectMsg*)pvMsg;
-    
+
                 if (pstrConnect->s8Error == 0) {
                     // no error
                     winc_debug(_winc_debug, "Socket successfully connected!");
@@ -921,7 +940,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
                 if (socket->callback) {
                     socket->callback(socket->callback_data);
-                }                
+                }
 
                 break;
 
@@ -960,7 +979,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
                         //!TODO
                         if (socket->callback && !socket->recv_in_progress){
                             socket->callback(socket->callback_data);
-                        }                
+                        }
                     }
                 }
                 else if (pstrRecvMsg->pu8Buffer == NULL) {
@@ -980,9 +999,9 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
                 } else {
                     _socket_data_sent.release();
-                
+
                 }
-                
+
                 break;
         }
     }
@@ -990,7 +1009,7 @@ void WINC1500Interface::socket_cb(SOCKET sock, uint8_t u8Msg, void* pvMsg) {
 
 void WINC1500Interface::wifi_thread_cb() {
     int cnt = 0;
-    while (1) { 
+    while (1) {
         wait_ms(1);
         if (++cnt >= 1000) {
                 cnt = 0;
@@ -1000,7 +1019,7 @@ void WINC1500Interface::wifi_thread_cb() {
 
                     if (socket) {
                         if (!socket->recv_req_pending && (socket->circ_buff.size() == 0) && !socket->recv_in_progress && socket->callback) {
-                            
+
                             winc_debug(false, "Requesting receive for socket FROM wifi_thread_cb%i", i);
                             socket->recv_req_pending = true;
                             sint16 err = WINC_SOCKET(recv)(socket->id, socket->chunk_buff, (uint16_t)sizeof(socket->chunk_buff), 100);
@@ -1014,7 +1033,7 @@ void WINC1500Interface::wifi_thread_cb() {
         /* Handle pending events from network controller. */
         while (m2m_wifi_handle_events(NULL) != M2M_SUCCESS) {
             wait_ms(1);
-            
+
         }
     }
 }
@@ -1042,7 +1061,7 @@ void WINC1500Interface::dnsResolveCallback(uint8* pu8HostName, uint32 u32ServerI
 #if MBED_WINC1500_PROVIDE_DEFAULT
 
 WiFiInterface *WiFiInterface::get_default_instance() {
-    
+
     WINC1500Interface* wifi_winc = &WINC1500Interface::getInstance();
     wifi_winc->chip_init();
 
